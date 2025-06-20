@@ -148,7 +148,7 @@ const BookingForm = ({ station, onSubmit, isBooking }) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <label htmlFor="date" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="date" className="block text-sm font-medium text-white">
           Date
         </label>
         <input
@@ -157,13 +157,13 @@ const BookingForm = ({ station, onSubmit, isBooking }) => {
           value={bookingDate}
           onChange={(e) => setBookingDate(e.target.value)}
           min={new Date().toISOString().split('T')[0]}
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+          className="mt-1 block w-full px-3 py-2 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-slate-700 text-white"
           required
         />
       </div>
 
       <div>
-        <label htmlFor="start-time" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="start-time" className="block text-sm font-medium text-white">
           Start Time
         </label>
         <input
@@ -171,13 +171,13 @@ const BookingForm = ({ station, onSubmit, isBooking }) => {
           id="start-time"
           value={startTime}
           onChange={(e) => setStartTime(e.target.value)}
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+          className="mt-1 block w-full px-3 py-2 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-slate-700 text-white"
           required
         />
       </div>
 
       <div>
-        <label htmlFor="duration" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="duration" className="block text-sm font-medium text-white">
           Duration (hours)
         </label>
         <input
@@ -187,20 +187,20 @@ const BookingForm = ({ station, onSubmit, isBooking }) => {
           onChange={(e) => setDuration(Number(e.target.value))}
           min="1"
           max="8"
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+          className="mt-1 block w-full px-3 py-2 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-slate-700 text-white"
           required
         />
       </div>
 
       <div>
-        <label htmlFor="vehicle-type" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="vehicle-type" className="block text-sm font-medium text-white">
           Vehicle Type
         </label>
         <select
           id="vehicle-type"
           value={vehicleType}
           onChange={(e) => setVehicleType(e.target.value)}
-          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md"
+          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-slate-600 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md bg-slate-700 text-white"
         >
           <option value="car">Car</option>
           <option value="motorcycle">Motorcycle</option>
@@ -208,10 +208,10 @@ const BookingForm = ({ station, onSubmit, isBooking }) => {
         </select>
       </div>
 
-      <div className="border-t border-gray-200 pt-4">
+      <div className="border-t border-slate-600 pt-4">
         <div className="flex justify-between items-center">
-          <p className="text-lg font-semibold text-gray-800">Total Price:</p>
-          <p className="text-2xl font-bold text-primary-600">${totalPrice.toFixed(2)}</p>
+          <p className="text-lg font-semibold text-white">Total Price:</p>
+          <p className="text-2xl font-bold text-primary-400">${totalPrice.toFixed(2)}</p>
         </div>
       </div>
 
@@ -219,7 +219,7 @@ const BookingForm = ({ station, onSubmit, isBooking }) => {
         <button
           type="submit"
           disabled={isBooking || station.availableSlots <= 0}
-          className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-primary-500 to-primary-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:bg-slate-600 disabled:cursor-not-allowed transition-opacity"
         >
           {isBooking ? 'Processing...' : (station.availableSlots > 0 ? 'Confirm & Book' : 'Slots Unavailable')}
         </button>

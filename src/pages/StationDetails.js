@@ -202,7 +202,7 @@ const StationDetails = () => {
           {/* Right Column: Booking Form + Auction */}
           <div className="lg:col-span-1">
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 lg:sticky lg:top-24">
-              <h2 className="text-2xl font-bold mb-6 text-center">Book Your Slot</h2>
+              <h2 className="text-2xl font-bold mb-6 text-center text-white">Book Your Slot</h2>
               <BookingForm 
                 station={station} 
                 onSubmit={handleBooking} 
