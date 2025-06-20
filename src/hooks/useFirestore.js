@@ -13,6 +13,13 @@ import {
 import { db } from '../config/firebase';
 import { useAuth } from './useAuth';
 
+export const getAllStations = async () => {
+  const stationsRef = collection(db, 'stations');
+  const q = query(stationsRef);
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
 export const useStations = () => {
   const [stations, setStations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +27,7 @@ export const useStations = () => {
 
   useEffect(() => {
     const stationsRef = collection(db, 'stations');
-    const q = query(stationsRef, where('status', '==', 'active'));
+    const q = query(stationsRef);
 
     const unsubscribe = onSnapshot(q, 
       (snapshot) => {

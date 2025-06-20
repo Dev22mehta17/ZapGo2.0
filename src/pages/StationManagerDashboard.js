@@ -4,6 +4,7 @@ import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/fire
 import { db } from '../config/firebase';
 import toast from 'react-hot-toast';
 import AddStationForm from '../components/AddStationForm';
+import { FiEdit, FiTrash2 } from 'react-icons/fi';
 
 const StationManagerDashboard = () => {
   const { user } = useAuth();
@@ -133,6 +134,11 @@ const StationManagerDashboard = () => {
     fetchStations();
   };
 
+  const handleCloseForm = () => {
+    setShowAddForm(false);
+    setSelectedStation(null);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -156,7 +162,10 @@ const StationManagerDashboard = () => {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Station Manager Dashboard</h1>
           <button
-            onClick={() => setShowAddForm(true)}
+            onClick={() => {
+              setSelectedStation(null);
+              setShowAddForm(true);
+            }}
             className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
           >
             Add New Station
@@ -165,10 +174,11 @@ const StationManagerDashboard = () => {
 
         {showAddForm && (
           <div className="mb-8">
-            <AddStationForm onSuccess={() => {
-              setShowAddForm(false);
-              fetchStations();
-            }} />
+            <AddStationForm 
+              stationToEdit={selectedStation} 
+              onSuccess={handleFormSuccess}
+              onClose={handleCloseForm}
+            />
           </div>
         )}
 
@@ -227,19 +237,36 @@ const StationManagerDashboard = () => {
             ) : (
               <div className="space-y-4">
                 {stations.map(station => (
-                  <div key={station.id} className="border rounded-lg p-4">
-                    <h3 className="font-medium text-gray-900">{station.name}</h3>
-                    <p className="text-sm text-gray-600">
-                      Available Slots: {station.availableSlots} / {station.totalSlots}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Price: ${station.pricePerHour}/hour
-                    </p>
-                    <div className="mt-2">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                        ${station.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {station.status}
-                      </span>
+                  <div key={station.id} className="border rounded-lg p-4 flex justify-between items-center">
+                    <div>
+                      <h3 className="font-medium text-gray-900">{station.name}</h3>
+                      <p className="text-sm text-gray-600">
+                        Available: {station.availableSlots} / {station.totalSlots} | Price: ${station.pricePerHour}/hr
+                      </p>
+                      <div className="mt-2">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                          ${station.status === 'available' ? 'bg-green-100 text-green-800' : 
+                            station.status === 'busy' ? 'bg-orange-100 text-orange-800' : 
+                            'bg-red-100 text-red-800'}`}>
+                          {station.status}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <button 
+                        onClick={() => handleEditStation(station)}
+                        className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors"
+                        title="Edit Station"
+                      >
+                        <FiEdit className="h-5 w-5" />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteStation(station.id)}
+                        className="p-2 text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-full transition-colors"
+                        title="Delete Station"
+                      >
+                        <FiTrash2 className="h-5 w-5" />
+                      </button>
                     </div>
                   </div>
                 ))}

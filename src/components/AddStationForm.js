@@ -1,205 +1,159 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import toast from 'react-hot-toast';
 
-const AddStationForm = ({ existingStation, onSuccess }) => {
+const AddStationForm = ({ stationToEdit, onSuccess, onClose }) => {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: existingStation?.name || '',
-    address: existingStation?.address || '',
-    totalPorts: existingStation?.totalPorts || 1,
-    pricePerHour: existingStation?.pricePerHour || 0,
-    status: existingStation?.status || 'active',
-    description: existingStation?.description || '',
-    latitude: existingStation?.latitude || 0,
-    longitude: existingStation?.longitude || 0,
+    name: '',
+    location: { address: '', lat: null, lng: null },
+    totalSlots: '',
+    availableSlots: '',
+    pricePerHour: '',
+    status: 'available', // available, busy, offline
+    amenities: ''
   });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (stationToEdit) {
+      setFormData({
+        name: stationToEdit.name || '',
+        location: stationToEdit.location || { address: '', lat: null, lng: null },
+        totalSlots: stationToEdit.totalSlots || '',
+        availableSlots: stationToEdit.availableSlots ?? '',
+        pricePerHour: stationToEdit.pricePerHour || '',
+        status: stationToEdit.status || 'available',
+        amenities: Array.isArray(stationToEdit.amenities) ? stationToEdit.amenities.join(', ') : ''
+      });
+    } else {
+      // Reset form when adding new
+      setFormData({
+        name: '',
+        location: { address: '', lat: null, lng: null },
+        totalSlots: '',
+        availableSlots: '',
+        pricePerHour: '',
+        status: 'available',
+        amenities: ''
+      });
+    }
+  }, [stationToEdit]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'totalPorts' || name === 'pricePerHour' || name === 'latitude' || name === 'longitude' ? Number(value) : value
-    }));
+    if (name === 'address') {
+      setFormData(prev => ({ ...prev, location: { ...prev.location, address: value } }));
+    } else if (name === 'totalSlots' || name === 'availableSlots' || name === 'pricePerHour') {
+      setFormData(prev => ({...prev, [name]: value === '' ? '' : Number(value) }));
+    } 
+    else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
-
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+
+    if (parseInt(formData.availableSlots) > parseInt(formData.totalSlots)) {
+        toast.error('Available slots cannot be greater than total slots.');
+        setLoading(false);
+        return;
+    }
+
+    const dataToSave = {
+      ...formData,
+      managerId: user.uid,
+      amenities: formData.amenities.split(',').map(item => item.trim()),
+      updatedAt: serverTimestamp()
+    };
+
+    // Remove empty fields from location
+    if (!dataToSave.location.lat || !dataToSave.location.lng) {
+        // Here you might want to geocode the address to get lat/lng
+        // For now, we'll just remove the incomplete location
+        delete dataToSave.location;
+    }
+
     try {
-      // Ensure all required fields are present and correct
-      const stationData = {
-        managerId: user.uid,
-        name: formData.name || '',
-        address: formData.address || '',
-        totalPorts: Number(formData.totalPorts) || 0,
-        pricePerHour: Number(formData.pricePerHour) || 0,
-        status: formData.status || 'active',
-        description: formData.description || '',
-        latitude: Number(formData.latitude) || 0,
-        longitude: Number(formData.longitude) || 0,
-        updatedAt: new Date().toISOString(),
-      };
-      if (!existingStation) {
-        stationData.createdAt = new Date().toISOString();
-      }
-      // Log the data for debugging
-      console.log('Saving station:', stationData);
-      if (existingStation) {
-        await updateDoc(doc(db, 'stations', existingStation.id), stationData);
-        toast.success('Station updated successfully');
+      if (stationToEdit) {
+        // Update existing station
+        const stationRef = doc(db, 'stations', stationToEdit.id);
+        await updateDoc(stationRef, dataToSave);
+        toast.success('Station updated successfully!');
       } else {
-        await addDoc(collection(db, 'stations'), stationData);
-        toast.success('Station added successfully');
+        // Add new station
+        dataToSave.createdAt = serverTimestamp();
+        await addDoc(collection(db, 'stations'), dataToSave);
+        toast.success('Station added successfully!');
       }
       onSuccess();
     } catch (error) {
       console.error('Error saving station:', error);
-      toast.error('Error saving station: ' + error.message);
+      toast.error('Failed to save station.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-            Station Name
-          </label>
-          <input
-            type="text"
-            id="name"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-        </div>
-        <div>
-          <label htmlFor="address" className="block text-sm font-medium text-gray-700">
-            Address
-          </label>
-          <input
-            type="text"
-            id="address"
-            name="address"
-            value={formData.address}
-            onChange={handleChange}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-        </div>
-        <div>
-          <label htmlFor="totalPorts" className="block text-sm font-medium text-gray-700">
-            Total Ports
-          </label>
-          <input
-            type="number"
-            id="totalPorts"
-            name="totalPorts"
-            min="1"
-            value={formData.totalPorts}
-            onChange={handleChange}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-        </div>
-        <div>
-          <label htmlFor="pricePerHour" className="block text-sm font-medium text-gray-700">
-            Price per Hour ($)
-          </label>
-          <input
-            type="number"
-            id="pricePerHour"
-            name="pricePerHour"
-            min="0"
-            step="0.01"
-            value={formData.pricePerHour}
-            onChange={handleChange}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-        </div>
-        <div>
-          <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-            Status
-          </label>
-          <select
-            id="status"
-            name="status"
-            value={formData.status}
-            onChange={handleChange}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          >
-            <option value="active">Active</option>
-            <option value="maintenance">Maintenance</option>
-            <option value="inactive">Inactive</option>
-          </select>
-        </div>
-        <div>
-          <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-            Description
-          </label>
-          <textarea
-            id="description"
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            rows="3"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-        </div>
-        <div>
-          <label htmlFor="latitude" className="block text-sm font-medium text-gray-700">
-            Latitude
-          </label>
-          <input
-            type="number"
-            id="latitude"
-            name="latitude"
-            value={formData.latitude}
-            onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-        </div>
-        <div>
-          <label htmlFor="longitude" className="block text-sm font-medium text-gray-700">
-            Longitude
-          </label>
-          <input
-            type="number"
-            id="longitude"
-            name="longitude"
-            value={formData.longitude}
-            onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-        </div>
-      </div>
-      <div className="flex justify-end space-x-4">
-        <button
-          type="button"
-          onClick={() => onSuccess()}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={loading}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-        >
-          {loading ? 'Saving...' : existingStation ? 'Update Station' : 'Add Station'}
-        </button>
-      </div>
-    </form>
+    <div className="bg-white p-8 rounded-lg shadow-lg border border-gray-200">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">
+          {stationToEdit ? 'Edit Station' : 'Add New Station'}
+        </h2>
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700">Station Name</label>
+                <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} required className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
+            </div>
+            
+            <div className="md:col-span-2">
+                <label htmlFor="address" className="block text-sm font-medium text-gray-700">Address</label>
+                <input type="text" name="address" id="address" value={formData.location.address} onChange={handleChange} required className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
+            </div>
+
+            <div>
+                <label htmlFor="totalSlots" className="block text-sm font-medium text-gray-700">Total Slots</label>
+                <input type="number" name="totalSlots" id="totalSlots" value={formData.totalSlots} onChange={handleChange} required min="0" className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
+            </div>
+            
+            <div>
+                <label htmlFor="availableSlots" className="block text-sm font-medium text-gray-700">Available Slots</label>
+                <input type="number" name="availableSlots" id="availableSlots" value={formData.availableSlots} onChange={handleChange} required min="0" className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
+            </div>
+            
+            <div>
+                <label htmlFor="pricePerHour" className="block text-sm font-medium text-gray-700">Price per Hour ($)</label>
+                <input type="number" name="pricePerHour" id="pricePerHour" value={formData.pricePerHour} onChange={handleChange} required min="0" step="0.01" className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
+            </div>
+            
+            <div>
+                <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status</label>
+                <select name="status" id="status" value={formData.status} onChange={handleChange} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md">
+                    <option value="available">Available</option>
+                    <option value="busy">Busy</option>
+                    <option value="offline">Offline</option>
+                </select>
+            </div>
+            
+            <div className="md:col-span-2">
+                <label htmlFor="amenities" className="block text-sm font-medium text-gray-700">Amenities (comma-separated)</label>
+                <input type="text" name="amenities" id="amenities" value={formData.amenities} onChange={handleChange} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
+            </div>
+
+            <div className="md:col-span-2 flex justify-end space-x-3 pt-4">
+                <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    Cancel
+                </button>
+                <button type="submit" disabled={loading} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:bg-gray-400">
+                    {loading ? 'Saving...' : (stationToEdit ? 'Save Changes' : 'Add Station')}
+                </button>
+            </div>
+        </form>
+    </div>
   );
 };
 

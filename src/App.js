@@ -12,6 +12,7 @@ import StationDetails from './pages/StationDetails';
 import MyBookings from './pages/MyBookings';
 import AdminDashboard from './pages/AdminDashboard';
 import StationManagerDashboard from './pages/StationManagerDashboard';
+import RoutePlanner from './pages/RoutePlanner';
 
 function App() {
   const { user, loading } = useAuth();
@@ -84,6 +85,18 @@ function App() {
             user ? (
               <Layout>
                 <MyBookings />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+        <Route
+          path="/route-planner"
+          element={
+            user ? (
+              <Layout>
+                <RoutePlanner />
               </Layout>
             ) : (
               <Navigate to="/login" />

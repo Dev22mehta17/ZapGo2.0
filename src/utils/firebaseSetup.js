@@ -6,35 +6,91 @@ export const usersCollection = collection(db, 'users');
 export const stationsCollection = collection(db, 'stations');
 export const bookingsCollection = collection(db, 'bookings');
 
-// Sample station data
-const sampleStations = [
+const dummyManagers = [
   {
-    id: 'station1',
-    name: 'Downtown Charging Hub',
-    location: {
-      lat: 40.7128,
-      lng: -74.0060,
-      address: '123 Main St, New York, NY'
-    },
-    totalSlots: 4,
-    availableSlots: 4,
-    pricePerHour: 5.99,
-    amenities: ['Restrooms', 'Coffee Shop', 'WiFi'],
-    status: 'active'
+    uid: 'manager1',
+    email: 'manager1@zapgo.com',
+    displayName: 'Manager One',
+    role: 'station_manager',
   },
   {
-    id: 'station2',
-    name: 'Westside EV Station',
-    location: {
-      lat: 40.7589,
-      lng: -73.9851,
-      address: '456 West Ave, New York, NY'
-    },
-    totalSlots: 2,
+    uid: 'manager2',
+    email: 'manager2@zapgo.com',
+    displayName: 'Manager Two',
+    role: 'station_manager',
+  },
+];
+
+const dummyStations = [
+  {
+    name: 'ZapGo Chennai',
+    location: { lat: 13.0827, lng: 80.2707, address: 'Chennai, Tamil Nadu' },
+    totalSlots: 4,
+    availableSlots: 3,
+    pricePerHour: 8,
+    status: 'available',
+    amenities: ['Restrooms', 'WiFi'],
+    managerId: 'manager1',
+  },
+  {
+    name: 'ZapGo Patiala',
+    location: { lat: 30.3398, lng: 76.3869, address: 'Patiala, Punjab' },
+    totalSlots: 3,
     availableSlots: 2,
-    pricePerHour: 4.99,
-    amenities: ['Restrooms', 'Convenience Store'],
-    status: 'active'
+    pricePerHour: 7,
+    status: 'available',
+    amenities: ['Coffee Shop'],
+    managerId: 'manager2',
+  },
+  {
+    name: 'ZapGo Hyderabad',
+    location: { lat: 17.385, lng: 78.4867, address: 'Hyderabad, Telangana' },
+    totalSlots: 5,
+    availableSlots: 5,
+    pricePerHour: 9,
+    status: 'busy',
+    amenities: ['Restrooms'],
+    managerId: 'manager1',
+  },
+  {
+    name: 'ZapGo Mumbai',
+    location: { lat: 19.076, lng: 72.8777, address: 'Mumbai, Maharashtra' },
+    totalSlots: 6,
+    availableSlots: 4,
+    pricePerHour: 10,
+    status: 'available',
+    amenities: ['WiFi', 'Parking'],
+    managerId: 'manager2',
+  },
+  {
+    name: 'ZapGo Ambala',
+    location: { lat: 30.3782, lng: 76.7767, address: 'Ambala, Haryana' },
+    totalSlots: 4,
+    availableSlots: 3,
+    pricePerHour: 8,
+    status: 'available',
+    amenities: ['Restrooms', 'WiFi'],
+    managerId: 'manager1',
+  },
+  {
+    name: 'ZapGo Bareilly',
+    location: { lat: 28.367, lng: 79.4304, address: 'Bareilly, Uttar Pradesh' },
+    totalSlots: 3,
+    availableSlots: 2,
+    pricePerHour: 7,
+    status: 'available',
+    amenities: ['Coffee Shop'],
+    managerId: 'manager2',
+  },
+  {
+    name: 'ZapGo Kanpur',
+    location: { lat: 26.4499, lng: 80.3319, address: 'Kanpur, Uttar Pradesh' },
+    totalSlots: 5,
+    availableSlots: 5,
+    pricePerHour: 9,
+    status: 'available',
+    amenities: ['Restrooms'],
+    managerId: 'manager1',
   }
 ];
 
@@ -45,8 +101,9 @@ export const initializeFirestore = async () => {
     const stationsSnapshot = await getDocs(stationsCollection);
     if (stationsSnapshot.empty) {
       // Add sample stations
-      for (const station of sampleStations) {
-        await setDoc(doc(stationsCollection, station.id), station);
+      for (const station of dummyStations) {
+        const stationId = station.name.replace(/\s+/g, '-').toLowerCase();
+        await setDoc(doc(stationsCollection, stationId), station);
       }
       console.log('Sample stations added successfully');
     }
@@ -103,4 +160,18 @@ export const updateStationAvailability = async (stationId, availableSlots) => {
     console.error('Error updating station availability:', error);
     throw error;
   }
+};
+
+export const seedDemoData = async () => {
+  // Seed managers
+  for (const manager of dummyManagers) {
+    await setDoc(doc(collection(db, 'users'), manager.uid), manager);
+  }
+  // Seed stations
+  for (const station of dummyStations) {
+    const stationId = station.name.replace(/\s+/g, '-').toLowerCase();
+    await setDoc(doc(collection(db, 'stations'), stationId), station);
+  }
+  // eslint-disable-next-line no-console
+  console.log('Demo managers and stations seeded!');
 }; 

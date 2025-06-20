@@ -2,7 +2,7 @@ import { useLoadScript } from '@react-google-maps/api';
 import { GOOGLE_MAPS_API_KEY } from '../config/googleMaps';
 
 // Define libraries outside of the hook to prevent recreation
-const libraries = ['places'];
+const libraries = ['places', 'geometry'];
 
 let isLoaded = false;
 let loadError = null;

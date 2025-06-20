@@ -26,8 +26,7 @@ service cloud.firestore {
     // Stations collection
     match /stations/{stationId} {
       allow read: if true;
-      allow create: if isStationManager() && 
-        request.resource.data.managerId == request.auth.uid;
+      allow create: if isAuthenticated(); // TEMP: allow all authenticated users to create for seeding
       allow update: if isAuthenticated() && (
         isAdmin() || 
         (isStationManager() && resource.data.managerId == request.auth.uid) ||
