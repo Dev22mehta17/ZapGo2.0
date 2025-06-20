@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { GoogleMap, Marker, InfoWindow, DirectionsRenderer } from '@react-google-maps/api';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { GoogleMap, Marker, InfoWindow, DirectionsRenderer, MarkerF } from '@react-google-maps/api';
 import { Link } from 'react-router-dom';
 import { defaultCenter, defaultZoom } from '../config/googleMaps';
 import { useGoogleMaps } from '../hooks/useGoogleMaps';
@@ -38,11 +38,155 @@ const getMarkerIcon = (status, google) => {
   };
 };
 
-const Map = ({ center = defaultCenter, zoom = defaultZoom, stations = [], onStationSelect, directionsResponse, routeStops = [] }) => {
+const Map = ({ center = defaultCenter, zoom = defaultZoom, stations = [], onStationSelect, directionsResponse, routeStops = [], mapPadding }) => {
   const [map, setMap] = useState(null);
   const [selectedStation, setSelectedStation] = useState(null);
   const [mapCenter, setMapCenter] = useState(center);
   const { isLoaded, loadError, google } = useGoogleMaps();
+
+  const mapOptions = useMemo(() => ({
+    disableDefaultUI: true,
+    zoomControl: true,
+    clickableIcons: false,
+    styles: [
+        {
+            "featureType": "all",
+            "elementType": "labels.text.fill",
+            "stylers": [
+                {
+                    "color": "#ffffff"
+                }
+            ]
+        },
+        {
+            "featureType": "all",
+            "elementType": "labels.text.stroke",
+            "stylers": [
+                {
+                    "color": "#000000"
+                },
+                {
+                    "lightness": 13
+                }
+            ]
+        },
+        {
+            "featureType": "administrative",
+            "elementType": "geometry.fill",
+            "stylers": [
+                {
+                    "color": "#000000"
+                }
+            ]
+        },
+        {
+            "featureType": "administrative",
+            "elementType": "geometry.stroke",
+            "stylers": [
+                {
+                    "color": "#144b53"
+                },
+                {
+                    "lightness": 14
+                },
+                {
+                    "weight": 1.4
+                }
+            ]
+        },
+        {
+            "featureType": "landscape",
+            "elementType": "all",
+            "stylers": [
+                {
+                    "color": "#08304b"
+                }
+            ]
+        },
+        {
+            "featureType": "poi",
+            "elementType": "geometry",
+            "stylers": [
+                {
+                    "color": "#0c4152"
+                },
+                {
+                    "lightness": 5
+                }
+            ]
+        },
+        {
+            "featureType": "road.highway",
+            "elementType": "geometry.fill",
+            "stylers": [
+                {
+                    "color": "#000000"
+                }
+            ]
+        },
+        {
+            "featureType": "road.highway",
+            "elementType": "geometry.stroke",
+            "stylers": [
+                {
+                    "color": "#0b434f"
+                },
+                {
+                    "lightness": 25
+                }
+            ]
+        },
+        {
+            "featureType": "road.arterial",
+            "elementType": "geometry.fill",
+            "stylers": [
+                {
+                    "color": "#000000"
+                }
+            ]
+        },
+        {
+            "featureType": "road.arterial",
+            "elementType": "geometry.stroke",
+            "stylers": [
+                {
+                    "color": "#0b3d51"
+                },
+                {
+                    "lightness": 16
+                }
+            ]
+        },
+        {
+            "featureType": "road.local",
+            "elementType": "geometry",
+            "stylers": [
+                {
+                    "color": "#000000"
+                }
+            ]
+        },
+        {
+            "featureType": "transit",
+            "elementType": "all",
+            "stylers": [
+                {
+                    "color": "#146474"
+                }
+            ]
+        },
+        {
+            "featureType": "water",
+            "elementType": "all",
+            "stylers": [
+                {
+                    "color": "#021019"
+                }
+            ]
+        }
+    ],
+    padding: mapPadding,
+  }), [mapPadding]);
 
   useEffect(() => {
     if (map && center && typeof center.lat === 'number' && typeof center.lng === 'number') {
@@ -96,12 +240,7 @@ const Map = ({ center = defaultCenter, zoom = defaultZoom, stations = [], onStat
       zoom={zoom}
       onLoad={onLoad}
       onUnmount={onUnmount}
-      options={{
-        zoomControl: true,
-        streetViewControl: false,
-        mapTypeControl: false,
-        fullscreenControl: true,
-      }}
+      options={mapOptions}
     >
       {/* Station Markers */}
       {stations

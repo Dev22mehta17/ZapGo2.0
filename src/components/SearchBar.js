@@ -2,14 +2,22 @@ import { useRef } from 'react';
 import { Autocomplete } from '@react-google-maps/api';
 import { useGoogleMaps } from '../hooks/useGoogleMaps';
 
-const SearchBar = ({ onPlaceSelected, placeholder }) => {
+const SearchBar = ({ onPlaceSelected, placeholder, selectedPlace }) => {
   const { isLoaded, loadError } = useGoogleMaps();
   const autocompleteRef = useRef(null);
+  const inputRef = useRef(null);
 
   const handlePlaceChanged = () => {
     if (autocompleteRef.current) {
       const place = autocompleteRef.current.getPlace();
       onPlaceSelected(place);
+    }
+  };
+  
+  const handleInput = (e) => {
+    // This is a workaround to allow clearing the input
+    if (e.target.value === '') {
+      onPlaceSelected(null);
     }
   };
 
@@ -20,6 +28,8 @@ const SearchBar = ({ onPlaceSelected, placeholder }) => {
       </div>
     );
   }
+  
+  const value = selectedPlace ? selectedPlace.formatted_address : '';
 
   return (
     <div className="relative">
@@ -29,9 +39,12 @@ const SearchBar = ({ onPlaceSelected, placeholder }) => {
           onPlaceChanged={handlePlaceChanged}
         >
           <input
+            ref={inputRef}
             type="text"
             placeholder={placeholder || "Search for a location..."}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            defaultValue={value}
+            onInput={handleInput}
+            className="w-full px-4 py-2 bg-slate-600 border border-slate-500 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
           />
         </Autocomplete>
       )}
@@ -39,7 +52,7 @@ const SearchBar = ({ onPlaceSelected, placeholder }) => {
         <input
           type="text"
           placeholder={placeholder || "Search for a location..."}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100"
+          className="w-full px-4 py-2 bg-slate-600 border border-slate-500 rounded-lg text-white placeholder-slate-400"
           disabled
         />
       )}

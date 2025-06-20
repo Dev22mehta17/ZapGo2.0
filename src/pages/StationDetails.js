@@ -1,14 +1,25 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStation } from '../hooks/useFirestore';
 import { useAuth } from '../hooks/useAuth';
 import { collection, addDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import toast from 'react-hot-toast';
-import { FiMapPin, FiClock, FiDollarSign, FiZap, FiX } from 'react-icons/fi';
+import { FiMapPin, FiClock, FiDollarSign, FiZap, FiX, FiLoader, FiAlertTriangle, FiWifi, FiCoffee, FiShoppingCart } from 'react-icons/fi';
 
 import Map from '../components/Map';
 import BookingForm from '../components/BookingForm';
+
+// A simple component to map amenity strings to icons
+const AmenityIcon = ({ amenity }) => {
+  const iconMap = {
+    wifi: <FiWifi className="mr-2 h-5 w-5 text-primary-400" />,
+    cafe: <FiCoffee className="mr-2 h-5 w-5 text-primary-400" />,
+    store: <FiShoppingCart className="mr-2 h-5 w-5 text-primary-400" />,
+  };
+  const lowerCaseAmenity = amenity.toLowerCase();
+  return iconMap[lowerCaseAmenity] || <FiZap className="mr-2 h-5 w-5 text-primary-400" />;
+};
 
 const StationDetails = () => {
   const { id } = useParams();
@@ -29,19 +40,18 @@ const StationDetails = () => {
     }
 
     setIsBooking(true);
+    const toastId = toast.loading('Processing your booking...');
     try {
-      // 1. Check for availability one last time
       const stationRef = doc(db, 'stations', id);
       const stationDoc = await getDoc(stationRef);
       const currentStation = stationDoc.data();
 
       if (currentStation.availableSlots <= 0) {
-        toast.error('Sorry, no slots are available at this station.');
+        toast.error('Sorry, no slots are available at this station.', { id: toastId });
         setIsBooking(false);
         return;
       }
 
-      // 2. Create booking document
       const bookingData = {
         ...bookingDetails,
         userId: user.uid,
@@ -49,40 +59,43 @@ const StationDetails = () => {
         stationName: currentStation.name,
         stationManagerId: currentStation.managerId,
         status: 'confirmed',
-        paymentStatus: 'completed', // Assuming payment is handled
+        paymentStatus: 'completed',
         createdAt: new Date()
       };
       await addDoc(collection(db, 'bookings'), bookingData);
 
-      // 3. Update station's available slots
+      const newSlotCount = currentStation.availableSlots - 1;
+      const newStatus = newSlotCount > 0 ? 'available' : 'busy';
+
       await updateDoc(stationRef, {
-        availableSlots: currentStation.availableSlots - 1
+        availableSlots: newSlotCount,
+        status: newStatus,
       });
 
-      toast.success('Booking successful!');
+      toast.success('Booking successful! Redirecting...', { id: toastId });
       navigate('/my-bookings');
 
     } catch (err) {
       console.error('Booking failed:', err);
-      toast.error(err.message || 'Failed to book the station. Please try again.');
+      toast.error(err.message || 'Failed to book the station. Please try again.', { id: toastId });
     } finally {
       setIsBooking(false);
     }
   };
 
-  // Auction logic
   const handleBidSubmit = (e) => {
     e.preventDefault();
+    if (!userBid || Number(userBid) <= 0) {
+        toast.error("Please enter a valid bid amount.");
+        return;
+    }
     setIsAuctionRunning(true);
     setAuctionResult(null);
-    // Simulate 3-4 dummy user bids
-    const dummyBids = [
-      { name: 'UserA', bid: Math.floor(Math.random() * 100) + 50 },
-      { name: 'UserB', bid: Math.floor(Math.random() * 100) + 50 },
-      { name: 'UserC', bid: Math.floor(Math.random() * 100) + 50 },
-      { name: 'UserD', bid: Math.floor(Math.random() * 100) + 50 },
-    ];
-    const yourBid = { name: user?.displayName || user?.email || 'You', bid: Number(userBid) };
+    const dummyBids = Array.from({ length: 3 }, () => ({
+      name: `User${Math.random().toString(36).substring(7)}`,
+      bid: Math.floor(Math.random() * 150) + 50,
+    }));
+    const yourBid = { name: user?.displayName || 'You', bid: Number(userBid) };
     const allBids = [...dummyBids, yourBid];
     allBids.sort((a, b) => b.bid - a.bid);
     const winner = allBids[0];
@@ -94,177 +107,164 @@ const StationDetails = () => {
         isWinner: winner.name === yourBid.name && winner.bid === yourBid.bid,
       });
       setIsAuctionRunning(false);
-    }, 1200);
+    }, 1500);
   };
+
+  const MemoizedMap = useMemo(() => {
+    if (loading || !station?.location) return null;
+    return (
+       <div className="rounded-xl overflow-hidden border-2 border-slate-700 h-[300px] md:h-[400px]">
+        <Map 
+          center={station.location} 
+          stations={[station]} 
+          zoom={15}
+        />
+       </div>
+    );
+  }, [station, loading]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
-        <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-t-2 border-b-2 border-primary-600"></div>
+      <div className="h-screen-minus-nav flex items-center justify-center text-white">
+        <FiLoader className="animate-spin h-12 w-12 text-primary-500" />
       </div>
     );
   }
 
   if (error || !station) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-4rem)] text-red-600 px-4">
-        <p className="text-sm sm:text-base">Error: {error ? error.message : 'Station not found.'}</p>
+      <div className="h-screen-minus-nav flex items-center justify-center p-4">
+        <div className="text-center text-red-400 bg-red-900/50 p-6 rounded-lg">
+          <FiAlertTriangle className="h-12 w-12 mx-auto" />
+          <p className="mt-4 text-lg font-semibold">{error ? 'Failed to load station' : 'Station Not Found'}</p>
+          {error && <p className="text-red-300">{error.message}</p>}
+        </div>
       </div>
     );
   }
 
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'available': return 'bg-green-500/20 text-green-300 border-green-500/30';
+      case 'busy': return 'bg-red-500/20 text-red-300 border-red-500/30';
+      default: return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
+    }
+  };
+  
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto py-4 sm:py-6 lg:py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen-minus-nav bg-slate-900 text-white p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-gray-900 tracking-tight">{station.name}</h1>
-          <p className="mt-2 text-sm sm:text-base lg:text-lg text-gray-500 flex items-center">
-            <FiMapPin className="mr-2 h-4 w-4" />
+        <div className="mb-8">
+          <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight">{station.name}</h1>
+          <p className="mt-2 text-lg text-slate-400 flex items-center">
+            <FiMapPin className="mr-2 h-5 w-5" />
             {station.location?.address}
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 lg:gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column: Station Info & Map */}
-          <div className="lg:col-span-2 space-y-6 sm:space-y-8">
-            {/* Map */}
-            <div className="bg-white rounded-lg shadow-lg overflow-hidden h-[300px] sm:h-[400px] lg:h-[500px]">
-              <Map 
-                center={station.location} 
-                stations={[station]} 
-                zoom={15}
-              />
-            </div>
+          <div className="lg:col-span-2 space-y-8">
+            {MemoizedMap}
 
             {/* Station Details */}
-            <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6">Station Info</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 text-sm sm:text-base text-gray-600">
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+              <h2 className="text-2xl font-bold mb-6">Station Details</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-lg">
+                <div className="flex items-center"><FiZap className="mr-3 h-6 w-6 text-primary-400" /><span>Total Ports: <strong className="font-semibold text-white">{station.totalPorts ?? 'N/A'}</strong></span></div>
+                <div className="flex items-center"><FiZap className="mr-3 h-6 w-6 text-green-400" /><span>Available Slots: <strong className="font-semibold text-white">{station.availableSlots ?? 'N/A'}</strong></span></div>
+                <div className="flex items-center"><FiDollarSign className="mr-3 h-6 w-6 text-yellow-400" /><span>Price: <strong className="font-semibold text-white">${station.pricePerHour}/hour</strong></span></div>
                 <div className="flex items-center">
-                  <FiDollarSign className="mr-2 h-4 w-4 text-green-600" />
-                  <span><strong>Price:</strong> ${station.pricePerHour}/hour</span>
+                  <FiClock className="mr-3 h-6 w-6 text-cyan-400" />
+                  <span>Status: 
+                    <span className={`ml-2 px-3 py-1 text-sm font-bold rounded-full border ${getStatusColor(station.status)}`}>
+                        {station.status}
+                    </span>
+                  </span>
                 </div>
-                <div className="flex items-center">
-                  <FiZap className="mr-2 h-4 w-4 text-blue-600" />
-                  <span><strong>Total Ports:</strong> {station.totalPorts ?? 'N/A'}</span>
-                </div>
-                <div className="flex items-center">
-                  <FiClock className="mr-2 h-4 w-4 text-orange-600" />
-                  <span><strong>Available Slots:</strong> {station.availableSlots ?? 'N/A'}</span>
-                </div>
-                <div className="flex items-center">
-                  <span><strong>Status:</strong> <span className={`font-bold ${
-                    station.status === 'available' ? 'text-green-600' :
-                    station.status === 'busy' ? 'text-red-600' :
-                    'text-gray-500'
-                  }`}>{station.status}</span></span>
-                </div>
-                {station.amenities && (
-                  <div className="col-span-1 sm:col-span-2">
-                    <strong>Amenities:</strong>
-                    <ul className="list-disc list-inside mt-2 space-y-1">
-                      {station.amenities.map(item => <li key={item}>{item}</li>)}
-                    </ul>
-                  </div>
-                )}
               </div>
+              {station.amenities && station.amenities.length > 0 && (
+                <div className="mt-8">
+                  <h3 className="text-xl font-bold mb-4">Amenities</h3>
+                  <div className="flex flex-wrap gap-4">
+                    {station.amenities.map(item => (
+                      <div key={item} className="flex items-center bg-slate-700/50 px-4 py-2 rounded-lg">
+                        <AmenityIcon amenity={item} /> {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Right Column: Booking Form + Auction */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 lg:sticky lg:top-8">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6">Book a Slot</h2>
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 lg:sticky lg:top-24">
+              <h2 className="text-2xl font-bold mb-6 text-center">Book Your Slot</h2>
               <BookingForm 
                 station={station} 
                 onSubmit={handleBooking} 
                 isBooking={isBooking}
               />
-              {/* Auction Button */}
-              <div className="mt-6 sm:mt-8">
-                <button
-                  className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2.5 sm:py-3 px-4 rounded-lg shadow-md transition-colors text-sm sm:text-base"
-                  onClick={() => setShowBidModal(true)}
-                >
-                  Bid for Slot 
-                </button>
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-700" /></div>
+                <div className="relative flex justify-center text-sm"><span className="px-2 bg-slate-800 text-slate-400">Or</span></div>
               </div>
+              <button
+                className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:opacity-90 transition-opacity"
+                onClick={() => setShowBidModal(true)}
+              >
+                Bid for a Priority Slot
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Simple Modal for Auction */}
+        {/* --- Auction Modal --- */}
         {showBidModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-sm sm:max-w-md w-full mx-auto p-4 sm:p-6 lg:p-8 relative">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-xl max-w-md w-full mx-auto p-6 relative">
               <button
-                className="absolute top-2 right-2 sm:top-4 sm:right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold p-1"
-                onClick={() => { setShowBidModal(false); setAuctionResult(null); setUserBid(''); }}
-                aria-label="Close"
+                className="absolute top-4 right-4 text-slate-400 hover:text-white"
+                onClick={() => {
+                  setShowBidModal(false);
+                  setAuctionResult(null);
+                  setUserBid('');
+                }}
               >
                 <FiX className="h-6 w-6" />
               </button>
-              <h2 className="text-xl sm:text-2xl font-bold mb-4">E-Auction: Bid for Slot</h2>
-              <ol className="mb-4 text-gray-700 text-sm sm:text-base list-decimal list-inside space-y-1">
-                <li>Enter your max bid (₹).</li>
-                <li>System will simulate 4-5 users bidding.</li>
-                <li>Highest bidder wins the slot!</li>
-              </ol>
+              <h2 className="text-2xl font-bold text-white mb-4">E-Auction for Priority Slot</h2>
+              
               {!auctionResult ? (
                 <form onSubmit={handleBidSubmit} className="space-y-4">
+                   <p className="text-slate-400">Place a bid. The highest bidder wins the next available slot automatically.</p>
                   <div>
-                    <label htmlFor="bid" className="block text-sm font-medium text-gray-700 mb-1">
-                      Your Bid (₹)
-                    </label>
+                    <label htmlFor="bid" className="block text-sm font-medium text-slate-300 mb-2">Your Bid (in $)</label>
                     <input
-                      type="number"
                       id="bid"
+                      type="number"
                       value={userBid}
                       onChange={(e) => setUserBid(e.target.value)}
-                      className="w-full px-3 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm sm:text-base"
-                      placeholder="Enter your bid amount"
-                      required
-                      min="1"
+                      className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                      placeholder="e.g., 50"
                     />
                   </div>
-                  <button
-                    type="submit"
-                    disabled={isAuctionRunning || !userBid}
-                    className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-2.5 sm:py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
-                  >
-                    {isAuctionRunning ? 'Running Auction...' : 'Submit Bid'}
+                  <button type="submit" disabled={isAuctionRunning} className="w-full py-3 px-4 bg-gradient-to-r from-primary-500 to-primary-600 rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50">
+                    {isAuctionRunning ? <FiLoader className="animate-spin mx-auto h-6 w-6" /> : 'Place Bid'}
                   </button>
                 </form>
               ) : (
-                <div className="space-y-4">
-                  <div className={`p-4 rounded-lg text-center ${
-                    auctionResult.isWinner ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    <h3 className="font-bold text-lg">
-                      {auctionResult.isWinner ? '🎉 You Won!' : '😔 You Lost'}
-                    </h3>
-                    <p className="text-sm sm:text-base">
-                      Winning bid: ₹{auctionResult.winner.bid} by {auctionResult.winner.name}
-                    </p>
-                    <p className="text-sm sm:text-base">
-                      Your bid: ₹{auctionResult.yourBid.bid}
-                    </p>
-                  </div>
-                  <div className="bg-gray-100 p-3 rounded-lg">
-                    <h4 className="font-semibold text-sm sm:text-base mb-2">All Bids:</h4>
-                    <ul className="text-xs sm:text-sm space-y-1">
-                      {auctionResult.allBids.map((bid, index) => (
-                        <li key={index} className={`${bid.name === auctionResult.yourBid.name ? 'font-bold' : ''}`}>
-                          {bid.name}: ₹{bid.bid}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <button
-                    onClick={() => { setShowBidModal(false); setAuctionResult(null); setUserBid(''); }}
-                    className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2.5 sm:py-3 px-4 rounded-lg transition-colors text-sm sm:text-base"
-                  >
+                <div className="text-center">
+                  <h3 className={`text-3xl font-bold mb-4 ${auctionResult.isWinner ? 'text-green-400' : 'text-red-400'}`}>
+                    {auctionResult.isWinner ? 'You Won!' : 'Auction Lost'}
+                  </h3>
+                  <p className="text-slate-300 mb-4">The winning bid was <strong className="text-white">${auctionResult.winner.bid}</strong> by <strong className="text-white">{auctionResult.winner.name}</strong>.</p>
+                  <p className="text-slate-400 text-sm mb-6">Your bid was <strong className="text-white">${auctionResult.yourBid.bid}</strong>.</p>
+                  {auctionResult.isWinner && <p className="text-green-400 font-semibold mb-6">Congratulations! The slot is yours. You will be notified shortly.</p>}
+                  <button onClick={() => { setShowBidModal(false); setAuctionResult(null); setUserBid(''); }} className="w-full py-3 px-4 bg-slate-700 rounded-lg font-semibold hover:bg-slate-600 transition-colors">
                     Close
                   </button>
                 </div>

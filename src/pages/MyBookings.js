@@ -1,196 +1,207 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
-import { FiCalendar, FiClock, FiMapPin, FiUser, FiZap, FiX, FiTrash2, FiAlertTriangle, FiExternalLink } from 'react-icons/fi';
+import { FiCalendar, FiClock, FiMapPin, FiUser, FiZap, FiX, FiTrash2, FiAlertTriangle, FiExternalLink, FiLoader, FiInbox } from 'react-icons/fi';
+
+const BookingCard = ({ booking, userRole, openDeleteModal }) => {
+  const getStatusClasses = (status) => {
+    switch (status) {
+      case 'confirmed':
+        return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+      case 'completed':
+        return 'bg-green-500/20 text-green-300 border-green-500/30';
+      case 'cancelled':
+        return 'bg-red-500/20 text-red-300 border-red-500/30';
+      default:
+        return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
+    }
+  };
+
+  const formatDate = (timestamp) => {
+    if (!timestamp || !timestamp.toDate) return 'N/A';
+    return timestamp.toDate().toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric'
+    });
+  };
+  
+  const formatTime = (timestamp) => {
+    if (!timestamp || !timestamp.toDate) return 'N/A';
+    return timestamp.toDate().toLocaleTimeString('en-US', {
+      hour: '2-digit', minute: '2-digit', hour12: true
+    });
+  };
+
+  return (
+    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex-grow">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-3">
+          <h3 className="text-2xl font-bold text-white mb-2 sm:mb-0">
+            {booking.stationName || 'Station Name Not Found'}
+          </h3>
+          <div className={`px-3 py-1 text-sm font-bold rounded-full border ${getStatusClasses(booking.status)}`}>
+            {booking.status}
+          </div>
+        </div>
+        
+        <p className="flex items-center text-slate-400 mb-4">
+          <FiMapPin className="mr-2 h-4 w-4" />
+          {booking.stationAddress || 'Address not available'}
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-slate-300">
+          <div className="flex items-center">
+            <FiCalendar className="mr-2 h-5 w-5 text-primary-400" />
+            <div>
+              <p className="text-xs text-slate-400">Date</p>
+              <p className="font-semibold">{formatDate(booking.date)}</p>
+            </div>
+          </div>
+          <div className="flex items-center">
+            <FiClock className="mr-2 h-5 w-5 text-primary-400" />
+            <div>
+              <p className="text-xs text-slate-400">Time</p>
+              <p className="font-semibold">{formatTime(booking.startTime)} - {formatTime(booking.endTime)}</p>
+            </div>
+          </div>
+          {userRole === 'stationManager' && booking.userDetails && (
+             <div className="flex items-center">
+              <FiUser className="mr-2 h-5 w-5 text-primary-400" />
+              <div>
+                <p className="text-xs text-slate-400">Booked By</p>
+                <p className="font-semibold">{booking.userDetails.name} ({booking.userDetails.email})</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <div className="flex-shrink-0 flex items-center gap-2 pt-4 md:pt-0 self-start md:self-center">
+        <Link to={`/station/${booking.stationId}`} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-full transition-colors">
+          <FiExternalLink className="h-5 w-5" />
+        </Link>
+        <button onClick={() => openDeleteModal(booking)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-slate-700 rounded-full transition-colors">
+          <FiTrash2 className="h-5 w-5" />
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const MyBookings = () => {
   const { user } = useAuth();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [userRole, setUserRole] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [bookingToDelete, setBookingToDelete] = useState(null);
 
   useEffect(() => {
-    const fetchUserRole = async () => {
-      try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          setUserRole(userDoc.data().role);
-        }
-      } catch (error) {
-        console.error('Error fetching user role:', error);
-        setError(error);
-      }
-    };
-
-    if (user) {
-      fetchUserRole();
-    }
-  }, [user]);
-
-  useEffect(() => {
     const fetchBookings = async () => {
-      if (!user || !userRole) return;
-
+      if (!user) return;
       setLoading(true);
+      
       try {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        const userData = userDoc.exists() ? userDoc.data() : {};
+        const userRole = userData.role;
+
         let bookingsQuery;
         
-        if (userRole === 'station_manager') {
-          // For station managers: get their stations first
-          const stationsQuery = query(
-            collection(db, 'stations'),
-            where('managerId', '==', user.uid)
-          );
-          const stationsSnapshot = await getDocs(stationsQuery);
-          const stationIds = stationsSnapshot.docs.map(doc => doc.id);
-
-          if (stationIds.length === 0) {
-            setBookings([]);
-            setLoading(false);
-            return;
-          }
-
-          // Then get bookings for those stations
+        if (userRole === 'stationManager') {
           bookingsQuery = query(
             collection(db, 'bookings'),
-            where('stationId', 'in', stationIds)
+            where('stationManagerId', '==', user.uid),
+            orderBy('startTime', 'desc')
           );
         } else {
-          // For regular users: get their own bookings
           bookingsQuery = query(
             collection(db, 'bookings'),
-            where('userId', '==', user.uid)
+            where('userId', '==', user.uid),
+            orderBy('startTime', 'desc')
           );
         }
 
         const bookingsSnapshot = await getDocs(bookingsQuery);
-        const bookingsData = bookingsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
+        const bookingsData = await Promise.all(bookingsSnapshot.docs.map(async (bookingDoc) => {
+          const booking = { id: bookingDoc.id, ...bookingDoc.data() };
+
+          // Fetch station address with proper null checks
+          try {
+            const stationDocRef = doc(db, 'stations', booking.stationId);
+            const stationDoc = await getDoc(stationDocRef);
+            if (stationDoc.exists()) {
+              const stationData = stationDoc.data();
+              booking.stationAddress = stationData?.location?.address || stationData?.address || 'Address not available';
+            } else {
+              booking.stationAddress = 'Station not found';
+            }
+          } catch (stationError) {
+            console.error('Error fetching station:', stationError);
+            booking.stationAddress = 'Error loading address';
+          }
+
+          // Fetch user details if manager is viewing
+          if (userRole === 'stationManager') {
+            try {
+              const userDetailsDoc = await getDoc(doc(db, 'users', booking.userId));
+              booking.userDetails = userDetailsDoc.exists() ? userDetailsDoc.data() : null;
+            } catch (userError) {
+              console.error('Error fetching user details:', userError);
+              booking.userDetails = null;
+            }
+          }
+          return booking;
         }));
 
-        // For station managers, fetch user details for each booking
-        if (userRole === 'station_manager') {
-          const bookingsWithUserDetails = await Promise.all(
-            bookingsData.map(async (booking) => {
-              const userDoc = await getDoc(doc(db, 'users', booking.userId));
-              return {
-                ...booking,
-                userDetails: userDoc.exists() ? userDoc.data() : null
-              };
-            })
-          );
-          setBookings(bookingsWithUserDetails);
-        } else {
-          setBookings(bookingsData);
-        }
-      } catch (error) {
-        console.error('Error fetching bookings:', error);
-        setError(error);
+        setBookings(bookingsData);
+
+      } catch (err) {
+        console.error('Error fetching bookings:', err);
+        setError(err);
+        toast.error('Failed to fetch bookings.');
       } finally {
         setLoading(false);
       }
     };
 
     fetchBookings();
-  }, [user, userRole]);
-
-  const handleCancelBooking = async (bookingId, startTime) => {
-    try {
-      const bookingRef = doc(db, 'bookings', bookingId);
-      const bookingDoc = await getDoc(bookingRef);
-      
-      if (!bookingDoc.exists()) {
-        toast.error('Booking not found');
-        return;
-      }
-
-      const bookingData = bookingDoc.data();
-      const bookingStartTime = bookingData.startTime.toDate();
-      
-      // Check if booking is in the future
-      if (bookingStartTime <= new Date()) {
-        toast.error('Cannot cancel past bookings');
-        return;
-      }
-
-      // Update booking status
-      await updateDoc(bookingRef, {
-        status: 'cancelled'
-      });
-
-      // Update station's available slots
-      const stationRef = doc(db, 'stations', bookingData.stationId);
-      const stationDoc = await getDoc(stationRef);
-      if (stationDoc.exists()) {
-        const stationData = stationDoc.data();
-        await updateDoc(stationRef, {
-          availableSlots: stationData.availableSlots + 1
-        });
-      }
-
-      // Update local state
-      setBookings(prevBookings =>
-        prevBookings.map(booking =>
-          booking.id === bookingId
-            ? { ...booking, status: 'cancelled' }
-            : booking
-        )
-      );
-
-      toast.success('Booking cancelled successfully');
-    } catch (error) {
-      console.error('Error cancelling booking:', error);
-      toast.error('Failed to cancel booking');
-    }
-  };
+  }, [user]);
 
   const handleDeleteBooking = async () => {
     if (!bookingToDelete) return;
+    const toastId = toast.loading("Deleting booking...");
 
     try {
       const bookingRef = doc(db, 'bookings', bookingToDelete.id);
-      const bookingDoc = await getDoc(bookingRef);
-      
-      if (!bookingDoc.exists()) {
-        toast.error('Booking not found');
-        return;
-      }
+      await deleteDoc(bookingRef);
 
-      const bookingData = bookingDoc.data();
-      
-      // If booking is confirmed and in the future, update station slots
-      if (bookingData.status === 'confirmed' && bookingData.startTime.toDate() > new Date()) {
-        const stationRef = doc(db, 'stations', bookingData.stationId);
+      // If the booking was confirmed and in the future, increment the station's available slots
+      if (bookingToDelete.status === 'confirmed' && bookingToDelete.startTime.toDate() > new Date()) {
+        const stationRef = doc(db, 'stations', bookingToDelete.stationId);
         const stationDoc = await getDoc(stationRef);
         if (stationDoc.exists()) {
           const stationData = stationDoc.data();
+          const newSlotCount = (stationData.availableSlots || 0) + 1;
+          const newStatus = newSlotCount > 0 ? 'available' : 'busy';
           await updateDoc(stationRef, {
-            availableSlots: stationData.availableSlots + 1
+            availableSlots: newSlotCount,
+            status: newStatus
           });
         }
       }
 
-      // Delete the booking
-      await deleteDoc(bookingRef);
-
-      // Update local state
-      setBookings(prevBookings =>
-        prevBookings.filter(booking => booking.id !== bookingToDelete.id)
-      );
-
-      toast.success('Booking deleted successfully');
+      setBookings(prev => prev.filter(b => b.id !== bookingToDelete.id));
+      toast.success('Booking deleted successfully!', { id: toastId });
       setShowDeleteModal(false);
       setBookingToDelete(null);
-    } catch (error) {
-      console.error('Error deleting booking:', error);
-      toast.error('Failed to delete booking');
+
+    } catch (err) {
+      console.error('Error deleting booking:', err);
+      toast.error(err.message || 'Failed to delete booking.', { id: toastId });
     }
   };
 
@@ -198,236 +209,103 @@ const MyBookings = () => {
     setBookingToDelete(booking);
     setShowDeleteModal(true);
   };
+  
+  const userRoleFromAuth = useAuth().user?.role;
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'confirmed':
-        return 'bg-green-100 text-green-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      case 'completed':
-        return 'bg-blue-100 text-blue-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="flex-grow flex items-center justify-center text-white">
+          <FiLoader className="animate-spin h-12 w-12 text-primary-500" />
+        </div>
+      );
     }
-  };
 
-  const formatDate = (date) => {
-    if (!date) return 'N/A';
-    const d = date.toDate ? date.toDate() : new Date(date);
-    return d.toLocaleDateString('en-US', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const formatTime = (date) => {
-    if (!date) return 'N/A';
-    const d = date.toDate ? date.toDate() : new Date(date);
-    return d.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-4 sm:py-6 lg:py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="animate-pulse">
-            <div className="h-6 sm:h-8 bg-gray-200 rounded w-1/3 sm:w-1/4 mb-4 sm:mb-6"></div>
-            <div className="space-y-3 sm:space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-20 sm:h-24 bg-gray-200 rounded"></div>
-              ))}
-            </div>
+    if (error) {
+       return (
+        <div className="flex-grow flex items-center justify-center p-4">
+          <div className="text-center text-red-400 bg-red-900/50 p-6 rounded-lg">
+            <FiAlertTriangle className="h-12 w-12 mx-auto" />
+            <p className="mt-4 text-lg font-semibold">Failed to load bookings</p>
+            <p className="text-red-300">{error.message}</p>
           </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-4 sm:py-6 lg:py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-red-600 text-sm sm:text-base">
-            Error loading bookings: {error.message}
+    if (bookings.length === 0) {
+      return (
+        <div className="flex-grow flex items-center justify-center text-center text-slate-400 p-4">
+          <div>
+            <FiInbox className="h-20 w-20 mx-auto text-slate-600" />
+            <h2 className="mt-4 text-2xl font-bold text-white">No Bookings Found</h2>
+            <p className="mt-2">You haven't made any bookings yet. Let's find a station!</p>
+            <Link to="/" className="mt-6 inline-block px-6 py-3 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors">
+              Find a Station
+            </Link>
           </div>
         </div>
+      );
+    }
+    
+    return (
+      <div className="space-y-6">
+        {bookings.map((booking) => (
+          <BookingCard key={booking.id} booking={booking} userRole={userRoleFromAuth} openDeleteModal={openDeleteModal} />
+        ))}
       </div>
     );
-  }
-
+  };
+  
   return (
-    <div className="min-h-screen bg-gray-50 py-4 sm:py-6 lg:py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 sm:mb-8">
-          {userRole === 'station_manager' ? 'Station Bookings' : 'My Bookings'}
-        </h1>
-
-        {bookings.length === 0 ? (
-          <div className="text-center py-8 sm:py-12">
-            <div className="bg-white rounded-lg shadow-sm p-6 sm:p-8 max-w-md mx-auto">
-              <FiCalendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg sm:text-xl font-medium text-gray-900 mb-2">No bookings found</h3>
-              <p className="text-sm sm:text-base text-gray-500 mb-6">
-                {userRole === 'station_manager'
-                  ? 'No bookings have been made to your stations yet.'
-                  : 'Get started by booking a charging slot.'}
-              </p>
-              {userRole !== 'station_manager' && (
-                <Link
-                  to="/"
-                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
-                >
-                  <FiZap className="mr-2 h-4 w-4" />
-                  Find Stations
-                </Link>
-              )}
-            </div>
+    <>
+      <div className="min-h-screen-minus-nav bg-slate-900 text-white p-4 sm:p-6 lg:p-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight">My Bookings</h1>
+            <p className="mt-2 text-lg text-slate-400">
+              {loading ? 'Loading your bookings...' : `You have ${bookings.length} booking(s).`}
+            </p>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:gap-6">
-            {bookings.map((booking) => (
-              <div key={booking.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                <div className="p-4 sm:p-6">
-                  {/* Header Section */}
-                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between mb-4">
-                    {/* Left Content */}
-                    <div className="flex-1 mb-4 lg:mb-0">
-                      <div className="flex items-start justify-between mb-3">
-                        <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
-                          {booking.stationName}
-                        </h3>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(booking.status)} ml-3`}>
-                          {booking.status}
-                        </span>
-                      </div>
-                      
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-6 text-sm sm:text-base text-gray-600 mb-3">
-                        <div className="flex items-center mb-2 sm:mb-0">
-                          <FiCalendar className="mr-2 h-4 w-4" />
-                          {formatDate(booking.startTime)}
-                        </div>
-                        <div className="flex items-center mb-2 sm:mb-0">
-                          <FiClock className="mr-2 h-4 w-4" />
-                          {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
-                        </div>
-                        <div className="flex items-center">
-                          <FiMapPin className="mr-2 h-4 w-4" />
-                          {booking.stationAddress || 'Address not available'}
-                        </div>
-                      </div>
-
-                      {userRole === 'station_manager' && booking.userDetails && (
-                        <div className="flex items-center text-sm text-gray-600 mb-3">
-                          <FiUser className="mr-2 h-4 w-4" />
-                          <span className="font-medium">Booked by:</span>
-                          <span className="ml-1">{booking.userDetails.name || booking.userDetails.email}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Right Side - Action Buttons */}
-                    <div className="flex flex-col space-y-2 lg:items-end">
-                      <Link
-                        to={`/station/${booking.stationId}`}
-                        className="inline-flex items-center px-3 py-2 border border-primary-300 shadow-sm text-sm font-medium rounded-lg text-primary-700 bg-primary-50 hover:bg-primary-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
-                      >
-                        <FiExternalLink className="mr-2 h-4 w-4" />
-                        View Station
-                      </Link>
-                      
-                      <div className="flex space-x-2">
-                        {booking.status === 'confirmed' && (
-                          <button
-                            onClick={() => handleCancelBooking(booking.id, booking.startTime)}
-                            className="inline-flex items-center px-3 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-lg text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-                          >
-                            <FiX className="mr-2 h-4 w-4" />
-                            Cancel
-                          </button>
-                        )}
-                        <button
-                          onClick={() => openDeleteModal(booking)}
-                          className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
-                        >
-                          <FiTrash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Details Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm sm:text-base bg-gray-50 p-4 rounded-lg">
-                    <div>
-                      <span className="font-medium text-gray-700">Duration:</span>
-                      <p className="text-gray-600">{booking.duration} hours</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">Total Cost:</span>
-                      <p className="text-gray-600">${booking.totalCost || booking.totalPrice || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">Payment Status:</span>
-                      <p className="text-gray-600">{booking.paymentStatus}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">Booking ID:</span>
-                      <p className="text-gray-600 font-mono text-xs">{booking.id.slice(-8)}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+          
+          <div className="flex flex-col">
+            {renderContent()}
           </div>
-        )}
-
-        {/* Delete Confirmation Modal */}
-        {showDeleteModal && bookingToDelete && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-sm sm:max-w-md w-full mx-auto p-4 sm:p-6 relative">
-              <div className="flex items-center mb-4">
-                <div className="flex-shrink-0">
-                  <FiAlertTriangle className="h-6 w-6 text-red-600" />
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-lg font-medium text-gray-900">Delete Booking</h3>
-                </div>
-              </div>
-              
-              <div className="mb-6">
-                <p className="text-sm sm:text-base text-gray-600">
-                  Are you sure you want to delete this booking for <strong>{bookingToDelete.stationName}</strong>?
-                </p>
-                <p className="text-sm text-gray-500 mt-2">
-                  This action cannot be undone.
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
-                <button
-                  onClick={() => { setShowDeleteModal(false); setBookingToDelete(null); }}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteBooking}
-                  className="flex-1 px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
-    </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-xl max-w-md w-full mx-auto p-6">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-500/20 mb-4">
+                <FiAlertTriangle className="h-6 w-6 text-red-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white">Delete Booking</h3>
+              <p className="mt-2 text-slate-400">
+                Are you sure you want to delete this booking? This action cannot be undone.
+              </p>
+            </div>
+            <div className="mt-6 flex justify-center gap-4">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-6 py-2.5 bg-slate-700 text-white font-semibold rounded-lg hover:bg-slate-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteBooking}
+                className="px-6 py-2.5 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

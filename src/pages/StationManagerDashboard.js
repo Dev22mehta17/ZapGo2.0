@@ -4,7 +4,8 @@ import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/fire
 import { db } from '../config/firebase';
 import toast from 'react-hot-toast';
 import AddStationForm from '../components/AddStationForm';
-import { FiEdit, FiTrash2 } from 'react-icons/fi';
+import { FiEdit, FiTrash2, FiPlus, FiBarChart2, FiDollarSign, FiZap, FiBookOpen, FiLoader } from 'react-icons/fi';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const StationManagerDashboard = () => {
   const { user } = useAuth();
@@ -12,22 +13,21 @@ const StationManagerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedStation, setSelectedStation] = useState(null);
-  const [activeBookings, setActiveBookings] = useState([]);
+  const [bookings, setBookings] = useState([]);
   const [stats, setStats] = useState({
     totalStations: 0,
     activeBookings: 0,
     totalRevenue: 0,
-    todayRevenue: 0,
-    totalBookings: 0,
-    todayBookings: 0
+    weeklyRevenueData: [],
   });
 
   useEffect(() => {
-    fetchStations();
-    fetchActiveBookings();
-  }, [user.uid]);
+    if (user?.uid) {
+      fetchData();
+    }
+  }, [user]);
 
-  const fetchStations = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
       // Fetch stations
@@ -41,7 +41,6 @@ const StationManagerDashboard = () => {
         id: doc.id,
         ...doc.data()
       }));
-      
       setStations(stationsData);
 
       // Fetch bookings for all stations
@@ -53,34 +52,40 @@ const StationManagerDashboard = () => {
         );
         
         const bookingsSnapshot = await getDocs(bookingsQuery);
-        const bookingsData = bookingsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+        const bookingsData = bookingsSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                // Ensure startTime and endTime are JS Date objects
+                startTime: data.startTime?.toDate ? data.startTime.toDate() : new Date(),
+                endTime: data.endTime?.toDate ? data.endTime.toDate() : new Date(),
+            }
+        });
+        setBookings(bookingsData);
 
         // Calculate statistics
         const now = new Date();
-        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        
-        const stats = {
-          totalStations: stationsData.length,
-          activeBookings: bookingsData.filter(booking => 
-            booking.status === 'confirmed' && 
-            booking.startTime.toDate() > now
-          ).length,
-          totalRevenue: bookingsData.reduce((sum, booking) => 
-            sum + (booking.totalPrice || 0), 0
-          ),
-          todayRevenue: bookingsData
-            .filter(booking => booking.startTime.toDate() >= startOfDay)
-            .reduce((sum, booking) => sum + (booking.totalPrice || 0), 0),
-          totalBookings: bookingsData.length,
-          todayBookings: bookingsData.filter(booking => 
-            booking.startTime.toDate() >= startOfDay
-          ).length
-        };
+        const totalRevenue = bookingsData.reduce((sum, booking) => sum + (booking.totalPrice || 0), 0);
+        const activeBookings = bookingsData.filter(b => b.status === 'confirmed' && b.startTime > now).length;
 
-        setStats(stats);
+        // Calculate weekly revenue for chart
+        const weeklyRevenueData = Array(7).fill(0).map((_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+          const revenue = bookingsData
+            .filter(b => b.startTime.toDateString() === d.toDateString())
+            .reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+          return { name: dayName, revenue };
+        }).reverse();
+        
+        setStats({
+          totalStations: stationsData.length,
+          activeBookings: activeBookings,
+          totalRevenue: totalRevenue,
+          weeklyRevenueData: weeklyRevenueData,
+        });
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -90,32 +95,12 @@ const StationManagerDashboard = () => {
     }
   };
 
-  const fetchActiveBookings = async () => {
-    try {
-      const bookingsQuery = query(
-        collection(db, 'bookings'),
-        where('stationManagerId', '==', user.uid),
-        where('status', '==', 'active')
-      );
-      
-      const querySnapshot = await getDocs(bookingsQuery);
-      const bookingsData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      setActiveBookings(bookingsData);
-    } catch (error) {
-      console.error('Error fetching bookings:', error);
-    }
-  };
-
   const handleDeleteStation = async (stationId) => {
     if (window.confirm('Are you sure you want to delete this station?')) {
       try {
         await deleteDoc(doc(db, 'stations', stationId));
         toast.success('Station deleted successfully');
-        fetchStations();
+        fetchData();
       } catch (error) {
         toast.error('Error deleting station');
         console.error('Error deleting station:', error);
@@ -131,152 +116,141 @@ const StationManagerDashboard = () => {
   const handleFormSuccess = () => {
     setShowAddForm(false);
     setSelectedStation(null);
-    fetchStations();
+    fetchData();
   };
 
   const handleCloseForm = () => {
     setShowAddForm(false);
     setSelectedStation(null);
   };
+  
+  const upcomingBookings = bookings
+    .filter(b => b.startTime > new Date())
+    .sort((a,b) => a.startTime - b.startTime)
+    .slice(0, 5);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="h-32 bg-gray-200 rounded"></div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <div className="min-h-screen-minus-nav bg-slate-900 flex items-center justify-center"><FiLoader className="text-primary-500 animate-spin h-12 w-12"/></div>;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen-minus-nav bg-slate-900 text-white p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Station Manager Dashboard</h1>
+          <h1 className="text-3xl font-bold">Manager Dashboard</h1>
           <button
             onClick={() => {
               setSelectedStation(null);
               setShowAddForm(true);
             }}
-            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-primary-500 to-primary-600 text-white font-semibold rounded-lg shadow-lg hover:opacity-90 transition-opacity"
           >
-            Add New Station
+            <FiPlus className="mr-2 -ml-1 h-5 w-5" />
+            Add Station
           </button>
         </div>
 
         {showAddForm && (
-          <div className="mb-8">
-            <AddStationForm 
-              stationToEdit={selectedStation} 
-              onSuccess={handleFormSuccess}
-              onClose={handleCloseForm}
-            />
+          <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center">
+             <div className="bg-slate-800 rounded-2xl shadow-2xl p-8 w-full max-w-2xl border border-slate-700 m-4">
+                <AddStationForm 
+                  stationToEdit={selectedStation} 
+                  onSuccess={handleFormSuccess}
+                  onClose={handleCloseForm}
+                />
+            </div>
           </div>
         )}
+        
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <StatCard icon={<FiZap />} title="Total Stations" value={stats.totalStations} color="blue" />
+            <StatCard icon={<FiBookOpen />} title="Active Bookings" value={stats.activeBookings} color="green" />
+            <StatCard icon={<FiDollarSign />} title="Total Revenue" value={`₹${stats.totalRevenue.toFixed(2)}`} color="purple" />
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Quick Stats */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Stats</h2>
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-600">Total Stations</p>
-                <p className="text-2xl font-bold text-blue-600">{stats.totalStations}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Active Bookings</p>
-                <p className="text-2xl font-bold text-green-600">{stats.activeBookings}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Total Revenue</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  ${stats.totalRevenue.toFixed(2)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Today's Stats */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Today's Stats</h2>
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-600">Today's Bookings</p>
-                <p className="text-2xl font-bold text-blue-600">{stats.todayBookings}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Today's Revenue</p>
-                <p className="text-2xl font-bold text-green-600">
-                  ${stats.todayRevenue.toFixed(2)}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Average Booking Value</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  ${stats.todayBookings > 0 
-                    ? (stats.todayRevenue / stats.todayBookings).toFixed(2) 
-                    : '0.00'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Station Management */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Station Management</h2>
-            {stations.length === 0 ? (
-              <p className="text-gray-600">No stations added yet</p>
-            ) : (
-              <div className="space-y-4">
-                {stations.map(station => (
-                  <div key={station.id} className="border rounded-lg p-4 flex justify-between items-center">
-                    <div>
-                      <h3 className="font-medium text-gray-900">{station.name}</h3>
-                      <p className="text-sm text-gray-600">
-                        Available: {station.availableSlots} / {station.totalSlots} | Price: ${station.pricePerHour}/hr
-                      </p>
-                      <div className="mt-2">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                          ${station.status === 'available' ? 'bg-green-100 text-green-800' : 
-                            station.status === 'busy' ? 'bg-orange-100 text-orange-800' : 
-                            'bg-red-100 text-red-800'}`}>
-                          {station.status}
-                        </span>
-                      </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left Column: My Stations */}
+            <div className="lg:col-span-2 space-y-6">
+                <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700">
+                    <h2 className="text-xl font-semibold mb-4">My Stations</h2>
+                    <div className="space-y-4">
+                        {stations.length > 0 ? stations.map(station => (
+                            <div key={station.id} className="bg-slate-700/50 p-4 rounded-lg flex justify-between items-center">
+                                <div>
+                                    <h3 className="font-semibold text-lg">{station.name}</h3>
+                                    <p className="text-sm text-slate-400">{station.address}</p>
+                                    <p className="text-sm text-slate-300 mt-1">
+                                        Slots: {station.availableSlots}/{station.totalSlots} | Price: ₹{station.pricePerHour}/hr
+                                    </p>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                    <button onClick={() => handleEditStation(station)} className="p-2 hover:bg-slate-600 rounded-full transition-colors"><FiEdit /></button>
+                                    <button onClick={() => handleDeleteStation(station.id)} className="p-2 hover:bg-slate-600 rounded-full transition-colors"><FiTrash2 /></button>
+                                </div>
+                            </div>
+                        )) : <p>No stations found. Add one to get started!</p>}
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <button 
-                        onClick={() => handleEditStation(station)}
-                        className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors"
-                        title="Edit Station"
-                      >
-                        <FiEdit className="h-5 w-5" />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteStation(station.id)}
-                        className="p-2 text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-full transition-colors"
-                        title="Delete Station"
-                      >
-                        <FiTrash2 className="h-5 w-5" />
-                      </button>
+                </div>
+
+                <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700">
+                    <h2 className="text-xl font-semibold mb-4">Upcoming Bookings</h2>
+                    <div className="space-y-3">
+                        {upcomingBookings.length > 0 ? upcomingBookings.map(b => (
+                            <div key={b.id} className="bg-slate-700/50 p-3 rounded-lg flex items-center justify-between">
+                                <div>
+                                    <p className="font-semibold">{stations.find(s=>s.id === b.stationId)?.name || 'Station'}</p>
+                                    <p className="text-sm text-slate-400">{b.userEmail || 'User'}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-sm">{b.startTime.toLocaleString()}</p>
+                                    <p className="font-semibold text-primary-400">₹{b.totalPrice}</p>
+                                </div>
+                            </div>
+                        )) : <p>No upcoming bookings.</p>}
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                </div>
+            </div>
+
+            {/* Right Column: Revenue Chart */}
+            <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700">
+                <h2 className="text-xl font-semibold mb-4">Weekly Revenue</h2>
+                <div style={{ width: '100%', height: 300 }}>
+                    <ResponsiveContainer>
+                        <BarChart data={stats.weeklyRevenueData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                            <XAxis dataKey="name" stroke="#9ca3af" />
+                            <YAxis stroke="#9ca3af" />
+                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }} />
+                            <Legend />
+                            <Bar dataKey="revenue" fill="#6366f1" />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
         </div>
       </div>
     </div>
   );
 };
+
+const StatCard = ({ icon, title, value, color }) => {
+    const colors = {
+        blue: 'text-blue-400',
+        green: 'text-green-400',
+        purple: 'text-purple-400',
+    }
+    return (
+        <div className="bg-slate-800/50 p-6 rounded-xl flex items-center space-x-4 border border-slate-700">
+            <div className={`p-3 rounded-full bg-slate-700 ${colors[color]}`}>
+                {icon}
+            </div>
+            <div>
+                <p className="text-sm text-slate-400">{title}</p>
+                <p className="text-2xl font-bold">{value}</p>
+            </div>
+        </div>
+    )
+}
 
 export default StationManagerDashboard; 

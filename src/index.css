@@ -29,6 +29,12 @@
   }
 }
 
+@layer utilities {
+  .h-screen-minus-nav {
+    height: calc(100vh - 4rem); /* Assuming nav height is 4rem (64px) */
+  }
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;

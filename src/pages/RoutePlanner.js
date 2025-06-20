@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FiMapPin, FiNavigation, FiBatteryCharging, FiClock, FiPlayCircle, FiLoader, FiZap, FiTarget, FiThermometer, FiAlertCircle, FiTrendingUp, FiMenu, FiX } from 'react-icons/fi';
+import { useState, useRef, useLayoutEffect } from 'react';
+import { FiMapPin, FiNavigation, FiBatteryCharging, FiClock, FiPlayCircle, FiLoader, FiZap, FiTarget, FiThermometer, FiAlertCircle, FiTrendingUp, FiMenu, FiX, FiChevronUp, FiChevronDown } from 'react-icons/fi';
 import { useGoogleMaps } from '../hooks/useGoogleMaps';
 import Map from '../components/Map';
 import SearchBar from '../components/SearchBar';
@@ -43,6 +43,9 @@ const RoutePlanner = () => {
   const [allRouteStations, setAllRouteStations] = useState([]);
   const [routeSummary, setRouteSummary] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [resultsPanelOpen, setResultsPanelOpen] = useState(true);
+  const [mapPadding, setMapPadding] = useState({ bottom: 0 });
+  const resultsPanelRef = useRef(null);
 
   const handleConfigChange = (e) => {
     const { name, value } = e.target;
@@ -60,6 +63,7 @@ const RoutePlanner = () => {
     setRouteStops([]);
     setAllRouteStations([]);
     setRouteSummary(null);
+    setResultsPanelOpen(true);
 
     try {
       const directionsService = new google.maps.DirectionsService();
@@ -167,12 +171,21 @@ const RoutePlanner = () => {
     }
   };
 
+  useLayoutEffect(() => {
+    if (routeSummary && resultsPanelRef.current) {
+      const panelHeight = resultsPanelRef.current.offsetHeight;
+      setMapPadding({ bottom: panelHeight });
+    } else {
+      setMapPadding({ bottom: 0 });
+    }
+  }, [routeSummary, resultsPanelOpen, resultsPanelRef]);
+
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-slate-50 relative">
+    <div className="h-screen-minus-nav bg-slate-900 text-white flex relative">
       {/* Mobile Menu Button */}
-      <button 
+      <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="lg:hidden fixed top-20 left-4 z-50 bg-white p-2 rounded-lg shadow-lg border border-slate-200"
+        className="lg:hidden fixed top-24 left-4 z-50 bg-slate-800/90 backdrop-blur-lg p-3 rounded-xl border border-slate-700 shadow-lg"
       >
         {sidebarOpen ? <FiX className="h-5 w-5" /> : <FiMenu className="h-5 w-5" />}
       </button>
@@ -181,145 +194,193 @@ const RoutePlanner = () => {
       <aside className={`
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
         lg:translate-x-0 lg:static lg:z-10
-        fixed top-0 left-0 h-full w-80 max-w-[90vw] 
-        bg-white shadow-xl lg:shadow-lg z-40 
+        fixed top-0 left-0 h-full w-80 max-w-[85vw] 
+        bg-slate-900/95 backdrop-blur-lg border-r border-slate-700 z-40 
         transition-transform duration-300 ease-in-out
-        flex flex-col
+        flex flex-col lg:w-96
       `}>
         {/* Header */}
-        <div className="p-4 lg:p-6 border-b border-slate-200 flex-shrink-0">
+        <div className="p-6 border-b border-slate-700 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <FiZap className="text-primary-600 h-6 w-6 lg:h-8 lg:w-8 mr-2 lg:mr-3" />
-              <h1 className="text-xl lg:text-2xl font-bold text-slate-800">EV Route Planner</h1>
+              <FiZap className="text-primary-500 h-8 w-8 mr-3" />
+              <h1 className="text-2xl font-bold">Route Planner</h1>
             </div>
-            <button 
+            <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1 hover:bg-slate-100 rounded"
+              className="lg:hidden p-2 hover:bg-slate-700 rounded-lg transition-colors"
             >
               <FiX className="h-5 w-5" />
             </button>
           </div>
         </div>
-        
-        {/* Scrollable Content */}
-        <div className="flex-grow p-4 lg:p-6 overflow-y-auto space-y-6 lg:space-y-8">
-          {/* Section 1: Journey */}
-          <section>
-            <h2 className="text-xs lg:text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 lg:mb-4">Journey</h2>
-            <div className="space-y-3 lg:space-y-4">
-              <SearchBar onPlaceSelected={setOrigin} placeholder="Start Point" />
-              <SearchBar onPlaceSelected={setDestination} placeholder="Destination" />
-            </div>
-          </section>
 
-          {/* Section 2: Vehicle */}
-          <section>
-            <h2 className="text-xs lg:text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 lg:mb-4">Vehicle</h2>
-            <div className="space-y-3 p-3 lg:p-4 bg-slate-100 rounded-lg">
-               <div className="flex items-center justify-between text-xs lg:text-sm">
-                  <label className="text-slate-600 flex items-center"><FiBatteryCharging className="mr-2" /> Current Charge</label>
-                  <input type="number" name="currentCharge" value={vehicleConfig.currentCharge} onChange={handleConfigChange} className="w-16 lg:w-20 rounded-md border-slate-300 text-center font-semibold text-xs lg:text-sm" />
-              </div>
-               <div className="flex items-center justify-between text-xs lg:text-sm">
-                  <label className="text-slate-600 flex items-center"><FiTarget className="mr-2" /> Target Charge</label>
-                  <input type="number" name="targetCharge" value={vehicleConfig.targetCharge} onChange={handleConfigChange} className="w-16 lg:w-20 rounded-md border-slate-300 text-center font-semibold text-xs lg:text-sm" />
-              </div>
-               <div className="flex items-center justify-between text-xs lg:text-sm">
-                  <label className="text-slate-600 flex items-center"><FiThermometer className="mr-2" /> Max Range (km)</label>
-                  <input type="number" name="maxRange" value={vehicleConfig.maxRange} onChange={handleConfigChange} className="w-16 lg:w-20 rounded-md border-slate-300 text-center font-semibold text-xs lg:text-sm" />
-              </div>
-            </div>
-          </section>
-          
-          <button onClick={planRoute} disabled={!isLoaded || !origin || !destination || loading} 
-            className="w-full flex items-center justify-center bg-primary-600 text-white py-2 lg:py-3 rounded-lg font-bold text-sm lg:text-lg hover:bg-primary-700 disabled:bg-slate-300 transition-all shadow-lg hover:shadow-primary-200">
-            {loading ? <FiLoader className="animate-spin mr-2 lg:mr-3" /> : <FiNavigation className="mr-2 lg:mr-3" />}
-            {loading ? 'Calculating...' : 'Plan Route'}
-          </button>
-        </div>
-
-        {/* Results Section */}
-        <div className="p-4 lg:p-6 border-t border-slate-200 flex-shrink-0">
-          {directionsResponse ? (
+        {/* Controls */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="space-y-4">
             <div>
-              {routeSummary && (
-                <div className="mb-3 lg:mb-4">
-                  <h3 className="text-xs lg:text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Trip Summary</h3>
-                  <div className="p-2 lg:p-3 bg-primary-50 text-primary-900 rounded-lg text-xs lg:text-sm space-y-1">
-                    <div className="flex justify-between font-semibold"><span>Distance:</span> <span>{routeSummary.distance}</span></div>
-                    <div className="flex justify-between font-semibold"><span>Duration:</span> <span>{routeSummary.duration}</span></div>
-                    <div className="flex justify-between font-semibold"><span>Charging Stops:</span> <span>{routeDetails.length}</span></div>
-                  </div>
-                </div>
-              )}
-              {routeDetails.length > 0 && (
-                <div className="text-center">
-                  <button 
-                    onClick={() => setSidebarOpen(false)}
-                    className="text-xs lg:text-sm font-semibold text-primary-600 hover:underline"
-                  >
-                    View Charging Plan
-                  </button>
-                </div>
-              )}
+              <label className="block text-sm font-medium text-slate-300 mb-2">Origin</label>
+              <SearchBar
+                placeholder="Enter starting point..."
+                onPlaceSelected={setOrigin}
+                selectedPlace={origin}
+              />
             </div>
-          ) : (
-            <div className="text-center text-xs lg:text-sm text-slate-400">
-              <p>Enter your journey details to get started.</p>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Destination</label>
+              <SearchBar
+                placeholder="Enter destination..."
+                onPlaceSelected={setDestination}
+                selectedPlace={destination}
+              />
             </div>
-          )}
+          </div>
+
+          <div className="bg-slate-800/50 rounded-xl p-4 space-y-4">
+            <h3 className="text-lg font-semibold flex items-center">
+              <FiBatteryCharging className="mr-2 h-5 w-5 text-primary-400" />
+              Vehicle Settings
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Current Charge (%)</label>
+                <input
+                  type="number"
+                  name="currentCharge"
+                  value={vehicleConfig.currentCharge}
+                  onChange={handleConfigChange}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Max Range (km)</label>
+                <input
+                  type="number"
+                  name="maxRange"
+                  value={vehicleConfig.maxRange}
+                  onChange={handleConfigChange}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Target Charge (%)</label>
+                <input
+                  type="number"
+                  name="targetCharge"
+                  value={vehicleConfig.targetCharge}
+                  onChange={handleConfigChange}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Start Time</label>
+                <input
+                  type="time"
+                  name="startTime"
+                  value={vehicleConfig.startTime}
+                  onChange={handleConfigChange}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={planRoute}
+            disabled={loading || !origin || !destination}
+            className="w-full bg-gradient-to-r from-primary-500 to-primary-600 text-white font-semibold py-3 px-4 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+          >
+            {loading ? (
+              <><FiLoader className="animate-spin h-5 w-5 mr-2" /> Planning...</>
+            ) : (
+              <><FiPlayCircle className="h-5 w-5 mr-2" /> Plan Route</>
+            )}
+          </button>
         </div>
       </aside>
 
-      {/* Right Content Panel */}
-      <main className="flex-grow h-full flex flex-col lg:flex-row">
-        {/* Map Area */}
-        <div className="flex-grow h-1/2 lg:h-full lg:w-2/3">
-           <Map stations={allRouteStations} directionsResponse={directionsResponse} routeStops={routeStops} />
-        </div>
-        {/* Timeline Area */}
-        <div className="flex-grow h-1/2 lg:h-full lg:w-1/3 bg-white p-4 lg:p-6 overflow-y-auto border-t-2 lg:border-l-2 lg:border-t-0 border-slate-200">
-          {directionsResponse ? (
-            routeDetails.length > 0 ? (
-              <div>
-                <h3 className="text-lg lg:text-xl font-bold text-slate-800 mb-3 lg:mb-4">Charging Timeline</h3>
-                <ul className="relative border-l-2 border-primary-300 ml-3">
-                  {routeDetails.map((stop, index) => (
-                    <li key={index} className="mb-6 lg:mb-8 ml-4 lg:ml-6">
-                       <span className="absolute flex items-center justify-center w-6 h-6 lg:w-8 lg:h-8 bg-primary-200 rounded-full -left-3 lg:-left-4 ring-4 lg:ring-8 ring-white">
-                            <FiBatteryCharging className="w-3 h-3 lg:w-4 lg:h-4 text-primary-700" />
-                       </span>
-                       <h4 className="font-bold text-slate-800 text-sm lg:text-base">{stop.name}</h4>
-                       <p className="text-xs lg:text-sm text-slate-500">{stop.address}</p>
-                       <div className="flex flex-col lg:flex-row lg:items-center text-xs lg:text-sm text-slate-600 mt-1 space-y-1 lg:space-y-0 lg:space-x-4">
-                           <span>Arrival: <strong>{stop.arrivalTime}</strong></span>
-                           <span>Charge: <strong>{stop.chargeDuration}</strong></span>
-                       </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-center text-slate-500">
-                <FiAlertCircle className="h-8 w-8 lg:h-12 lg:w-12 mb-2" />
-                <p className="font-semibold text-sm lg:text-base">No charging stops needed for this route.</p>
-                <p className="text-xs lg:text-sm">Your vehicle has enough range to complete the journey.</p>
-              </div>
-            )
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center text-center text-slate-500">
-              <FiTrendingUp className="h-8 w-8 lg:h-12 lg:w-12 mb-2" />
-              <p className="font-semibold text-sm lg:text-base">Your route and charging plan will appear here.</p>
+      {/* Map Section */}
+      <main className="flex-1 relative">
+        <Map
+          stations={allRouteStations}
+          directionsResponse={directionsResponse}
+          routeStops={routeStops}
+          zoom={5}
+          mapPadding={mapPadding}
+        />
+
+        {/* Floating Results Panel */}
+        {routeSummary && (
+          <div ref={resultsPanelRef} className="absolute bottom-0 left-0 right-0 p-4 z-10">
+            <div className="max-w-4xl mx-auto bg-slate-800/80 backdrop-blur-lg rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+              <button 
+                onClick={() => setResultsPanelOpen(!resultsPanelOpen)}
+                className="w-full p-4 flex justify-between items-center cursor-pointer hover:bg-slate-700/50 transition-colors"
+              >
+                <h3 className="text-lg font-semibold flex items-center">
+                  <FiTrendingUp className="mr-3 h-5 w-5 text-primary-400" />
+                  Route Summary
+                </h3>
+                <div className="flex items-center space-x-6">
+                   <div className="flex items-center space-x-2 text-sm">
+                      <FiMapPin className="text-slate-400"/>
+                      <span>{routeSummary.distance}</span>
+                   </div>
+                   <div className="flex items-center space-x-2 text-sm">
+                      <FiClock className="text-slate-400"/>
+                      <span>{routeSummary.duration}</span>
+                   </div>
+                   <div className="flex items-center space-x-2 text-sm">
+                      <FiBatteryCharging className="text-slate-400"/>
+                      <span>{routeDetails.length} stops</span>
+                   </div>
+                   {resultsPanelOpen ? <FiChevronDown className="h-6 w-6" /> : <FiChevronUp className="h-6 w-6" />}
+                </div>
+              </button>
+
+              {resultsPanelOpen && (
+                <div className="p-6 bg-slate-800/50">
+                  {routeDetails.length > 0 ? (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4 flex items-center">
+                        <FiMapPin className="mr-2 h-5 w-5 text-primary-400" />
+                        Charging Stops
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {routeDetails.map((stop, index) => (
+                          <div key={index} className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
+                            <div className="flex items-start justify-between mb-3">
+                              <h4 className="font-semibold text-white text-sm flex-1 mr-2">{stop.name}</h4>
+                              <span className="text-xs bg-primary-500/20 text-primary-300 px-2 py-1 rounded-full flex-shrink-0">
+                                Stop {index + 1}
+                              </span>
+                            </div>
+                            <p className="text-slate-400 text-xs mb-3">{stop.address}</p>
+                            <div className="flex items-center justify-between text-xs text-slate-300">
+                              <span className="flex items-center"><FiClock className="mr-1 h-3 w-3" /> {stop.arrivalTime}</span>
+                              <span className="flex items-center"><FiBatteryCharging className="mr-1 h-3 w-3" /> {stop.chargeDuration}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                       <FiAlertCircle className="mx-auto h-10 w-10 text-slate-500 mb-3" />
+                       <p className="font-semibold">No charging stops needed.</p>
+                       <p className="text-sm text-slate-400">Your vehicle has enough range for this trip.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </main>
 
       {/* Mobile Overlay */}
       {sidebarOpen && (
-        <div 
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
+        <div
+          className="lg:hidden fixed inset-0 bg-black/50 z-30"
           onClick={() => setSidebarOpen(false)}
         />
       )}
