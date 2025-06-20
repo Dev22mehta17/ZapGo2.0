@@ -8,6 +8,7 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
@@ -20,19 +21,32 @@ const Login = () => {
       toast.success('Logged in successfully!');
       navigate('/');
     } catch (error) {
-      toast.error(error.message);
+      console.error('Login error:', error);
+      toast.error(error.message || 'Failed to login. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
+    setGoogleLoading(true);
     try {
       await loginWithGoogle();
       toast.success('Logged in with Google successfully!');
       navigate('/');
     } catch (error) {
-      toast.error(error.message);
+      console.error('Google login error:', error);
+      if (error.code === 'auth/popup-blocked') {
+        toast.error('Please allow popups for this website to sign in with Google.');
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        toast.error('Sign in was cancelled. Please try again.');
+      } else if (error.code === 'auth/cancelled-popup-request') {
+        // Ignore this error as it's handled by the popup
+      } else {
+        toast.error(error.message || 'Failed to sign in with Google. Please try again.');
+      }
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -102,10 +116,11 @@ const Login = () => {
           <div className="mt-6">
             <button
               onClick={handleGoogleLogin}
-              className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              disabled={googleLoading}
+              className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
             >
               <FcGoogle className="h-5 w-5 mr-2" />
-              Sign in with Google
+              {googleLoading ? 'Signing in...' : 'Sign in with Google'}
             </button>
           </div>
         </div>

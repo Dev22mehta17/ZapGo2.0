@@ -1,32 +1,15 @@
-import { useState } from 'react';
+import { useRef } from 'react';
+import { Autocomplete } from '@react-google-maps/api';
 import { useGoogleMaps } from '../hooks/useGoogleMaps';
 
-const SearchBar = ({ onPlaceSelected }) => {
-  const [inputValue, setInputValue] = useState('');
-  const { isLoaded, loadError, google } = useGoogleMaps();
+const SearchBar = ({ onPlaceSelected, placeholder }) => {
+  const { isLoaded, loadError } = useGoogleMaps();
+  const autocompleteRef = useRef(null);
 
-  const handleInputChange = (e) => {
-    setInputValue(e.target.value);
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (inputValue.trim() && google) {
-      const geocoder = new google.maps.Geocoder();
-      geocoder.geocode({ address: inputValue }, (results, status) => {
-        if (status === 'OK' && results[0]) {
-          const place = {
-            geometry: {
-              location: {
-                lat: results[0].geometry.location.lat(),
-                lng: results[0].geometry.location.lng()
-              }
-            },
-            formatted_address: results[0].formatted_address
-          };
-          onPlaceSelected(place);
-        }
-      });
+  const handlePlaceChanged = () => {
+    if (autocompleteRef.current) {
+      const place = autocompleteRef.current.getPlace();
+      onPlaceSelected(place);
     }
   };
 
@@ -39,23 +22,28 @@ const SearchBar = ({ onPlaceSelected }) => {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="relative">
-      <input
-        type="text"
-        value={inputValue}
-        onChange={handleInputChange}
-        placeholder="Search for a location..."
-        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-        disabled={!isLoaded}
-      />
-      <button
-        type="submit"
-        className="absolute right-2 top-1/2 transform -translate-y-1/2 px-4 py-1 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        disabled={!isLoaded}
-      >
-        Search
-      </button>
-    </form>
+    <div className="relative">
+      {isLoaded && (
+        <Autocomplete
+          onLoad={(ref) => (autocompleteRef.current = ref)}
+          onPlaceChanged={handlePlaceChanged}
+        >
+          <input
+            type="text"
+            placeholder={placeholder || "Search for a location..."}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          />
+        </Autocomplete>
+      )}
+      {!isLoaded && (
+        <input
+          type="text"
+          placeholder={placeholder || "Search for a location..."}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100"
+          disabled
+        />
+      )}
+    </div>
   );
 };
 

@@ -1,16 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
-import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
+import { GoogleMap, Marker, InfoWindow, DirectionsRenderer } from '@react-google-maps/api';
 import { defaultCenter, defaultZoom } from '../config/googleMaps';
 import { useGoogleMaps } from '../hooks/useGoogleMaps';
 
-const Map = ({ center = defaultCenter, zoom = defaultZoom, stations = [], onStationSelect }) => {
+const Map = ({ center = defaultCenter, zoom = defaultZoom, stations = [], onStationSelect, directionsResponse }) => {
   const [map, setMap] = useState(null);
   const [selectedStation, setSelectedStation] = useState(null);
   const [mapCenter, setMapCenter] = useState(center);
   const { isLoaded, loadError, google } = useGoogleMaps();
 
   useEffect(() => {
-    if (map && center) {
+    if (map && center && typeof center.lat === 'number' && typeof center.lng === 'number') {
       map.panTo(center);
       setMapCenter(center);
     }
@@ -66,7 +66,9 @@ const Map = ({ center = defaultCenter, zoom = defaultZoom, stations = [], onStat
         fullscreenControl: true,
       }}
     >
-      {stations.map((station) => (
+      {stations
+        .filter(station => station.location && typeof station.location.lat === 'number' && typeof station.location.lng === 'number')
+        .map((station) => (
         <Marker
           key={station.id}
           position={{
@@ -94,6 +96,8 @@ const Map = ({ center = defaultCenter, zoom = defaultZoom, stations = [], onStat
           </div>
         </InfoWindow>
       )}
+
+      {directionsResponse && <DirectionsRenderer directions={directionsResponse} />}
     </GoogleMap>
   );
 };
