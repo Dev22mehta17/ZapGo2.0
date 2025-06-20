@@ -1,9 +1,11 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { FcGoogle } from 'react-icons/fc';
-import { FiMail, FiLock, FiUser, FiZap } from 'react-icons/fi';
+import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { FiUser, FiMail, FiLock, FiBriefcase, FiMapPin, FiLogIn } from 'react-icons/fi';
+import { Autocomplete, useLoadScript } from '@react-google-maps/api';
+
+const libraries = ['places'];
 
 const Signup = () => {
   const [email, setEmail] = useState('');
@@ -11,186 +13,186 @@ const Signup = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [role, setRole] = useState('user'); // 'user' or 'stationManager'
+  const [stationDetails, setStationDetails] = useState({
+    name: '',
+    address: '',
+    location: null,
+  });
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const { signup, loginWithGoogle } = useAuth();
+  
+  const { signup } = useAuth();
   const navigate = useNavigate();
+  const autocompleteRef = useRef(null);
+
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
+    libraries,
+  });
+
+  const handlePlaceSelect = () => {
+    if (autocompleteRef.current) {
+        const place = autocompleteRef.current.getPlace();
+        if (place && place.geometry) {
+            setStationDetails(prev => ({
+                ...prev,
+                address: place.formatted_address,
+                location: {
+                    lat: place.geometry.location.lat(),
+                    lng: place.geometry.location.lng(),
+                }
+            }));
+        }
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      toast.error("Passwords do not match.");
-      return;
+      return setError("Passwords do not match");
     }
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 characters long.");
-      return;
+    if (role === 'stationManager' && (!stationDetails.name || !stationDetails.location)) {
+        return setError("Please fill in all station details.");
     }
+    setError('');
     setLoading(true);
     try {
-      await signup(email, password, displayName, role);
-      toast.success('Account created successfully!');
-      navigate('/');
-    } catch (error) {
-      console.error("Signup error:", error);
-      toast.error(error.message || 'Failed to create account.');
+      await signup(email, password, displayName, role, stationDetails);
+      toast.success('Account created successfully! Welcome.');
+      navigate(role === 'stationManager' ? '/station-manager-dashboard' : '/');
+    } catch (err) {
+      setError(err.message);
+      toast.error(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setGoogleLoading(true);
-    try {
-      await loginWithGoogle(role); // Pass role to Google sign-in
-      toast.success('Signed up with Google successfully!');
-      navigate('/');
-    } catch (error) {
-      console.error('Google signup error:', error);
-       if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
-        toast.error(error.message || 'Failed to sign up with Google.');
-      }
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
+  const renderStationManagerFields = () => (
+    <>
+        <div className="relative mb-4">
+            <FiBriefcase className="absolute top-1/2 left-4 -translate-y-1/2 text-slate-400" />
+            <input
+                type="text"
+                value={stationDetails.name}
+                onChange={(e) => setStationDetails(prev => ({...prev, name: e.target.value}))}
+                placeholder="Your Station's Name"
+                className="w-full bg-slate-700/50 border border-slate-700 rounded-lg py-3 pl-12 pr-4 text-white placeholder-slate-400 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                required
+            />
+        </div>
+        <div className="relative mb-4">
+            <FiMapPin className="absolute top-1/2 left-4 -translate-y-1/2 text-slate-400" />
+             {isLoaded && (
+                <Autocomplete
+                    onLoad={(ref) => autocompleteRef.current = ref}
+                    onPlaceChanged={handlePlaceSelect}
+                >
+                    <input
+                        type="text"
+                        defaultValue={stationDetails.address}
+                        placeholder="Station Address"
+                        className="w-full bg-slate-700/50 border border-slate-700 rounded-lg py-3 pl-12 pr-4 text-white placeholder-slate-400 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                        required
+                    />
+                </Autocomplete>
+            )}
+            {loadError && <p className="text-red-500 text-xs mt-1">Error loading address search.</p>}
+        </div>
+    </>
+  );
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white font-sans p-4">
+    <div className="min-h-screen-minus-nav flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <Link to="/" className="flex justify-center items-center mb-4">
-            <FiZap className="h-10 w-10 text-primary-500" />
-            <span className="text-3xl font-bold ml-2">ZapGo</span>
-          </Link>
-          <h2 className="text-3xl font-bold text-white">Create Your Account</h2>
-          <p className="mt-2 text-slate-400">Join the EV revolution today.</p>
-        </div>
-
-        {/* Form */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8 space-y-6">
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            {/* Role Selector */}
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                type="button"
-                onClick={() => setRole('user')}
-                className={`py-3 rounded-lg font-semibold transition-colors ${
-                  role === 'user' ? 'bg-primary-600 text-white' : 'bg-slate-800 hover:bg-slate-700'
-                }`}
-              >
-                I'm an EV Owner
-              </button>
-              <button
-                type="button"
-                onClick={() => setRole('stationManager')}
-                className={`py-3 rounded-lg font-semibold transition-colors ${
-                  role === 'stationManager' ? 'bg-primary-600 text-white' : 'bg-slate-800 hover:bg-slate-700'
-                }`}
-              >
-                I'm a Station Manager
-              </button>
+        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl shadow-2xl p-8 backdrop-blur-lg">
+          <h2 className="text-4xl font-bold text-center text-white mb-2">Create Account</h2>
+          <p className="text-center text-slate-400 mb-8">Join ZapGo and power up your journey.</p>
+          
+          <form onSubmit={handleSubmit}>
+            {error && <p className="bg-red-500/20 text-red-300 p-3 rounded-lg mb-4 text-sm">{error}</p>}
+            
+            <div className="relative mb-4">
+              <FiUser className="absolute top-1/2 left-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Full Name"
+                className="w-full bg-slate-700/50 border border-slate-700 rounded-lg py-3 pl-12 pr-4 text-white placeholder-slate-400 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                required
+              />
+            </div>
+            
+            <div className="relative mb-4">
+              <FiMail className="absolute top-1/2 left-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email Address"
+                className="w-full bg-slate-700/50 border border-slate-700 rounded-lg py-3 pl-12 pr-4 text-white placeholder-slate-400 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                required
+              />
             </div>
 
-            {/* Input Fields */}
-            <div>
-              <label htmlFor="displayName" className="block text-sm font-medium text-slate-300 mb-2">Full Name</label>
-              <div className="relative">
-                <FiUser className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
-                <input
-                  id="displayName"
-                  name="displayName"
-                  type="text"
-                  required
-                  className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-600 rounded-lg placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  placeholder="Your Name"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                />
-              </div>
+            <div className="relative mb-4">
+              <FiLock className="absolute top-1/2 left-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                className="w-full bg-slate-700/50 border border-slate-700 rounded-lg py-3 pl-12 pr-4 text-white placeholder-slate-400 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                required
+              />
             </div>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">Email address</label>
-              <div className="relative">
-                <FiMail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-600 rounded-lg placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
+
+            <div className="relative mb-4">
+              <FiLock className="absolute top-1/2 left-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm Password"
+                className="w-full bg-slate-700/50 border border-slate-700 rounded-lg py-3 pl-12 pr-4 text-white placeholder-slate-400 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                required
+              />
             </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">Password</label>
-              <div className="relative">
-                <FiLock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-600 rounded-lg placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  placeholder="6+ characters"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
+
+            <div className="mb-6">
+                <label className="text-slate-300 mb-2 block font-medium">I am a...</label>
+                <div className="flex items-center space-x-4">
+                    <label className="flex items-center cursor-pointer">
+                        <input type="radio" name="role" value="user" checked={role === 'user'} onChange={() => setRole('user')} className="hidden" />
+                        <div className={`py-2 px-5 rounded-lg transition-all ${role === 'user' ? 'bg-primary-600 text-white' : 'bg-slate-700 text-slate-300'}`}>
+                            Regular User
+                        </div>
+                    </label>
+                    <label className="flex items-center cursor-pointer">
+                        <input type="radio" name="role" value="stationManager" checked={role === 'stationManager'} onChange={() => setRole('stationManager')} className="hidden" />
+                         <div className={`py-2 px-5 rounded-lg transition-all ${role === 'stationManager' ? 'bg-primary-600 text-white' : 'bg-slate-700 text-slate-300'}`}>
+                            Station Manager
+                        </div>
+                    </label>
+                </div>
             </div>
-             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-300 mb-2">Confirm Password</label>
-              <div className="relative">
-                <FiLock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  required
-                  className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-600 rounded-lg placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  placeholder="Re-enter password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                />
-              </div>
-            </div>
+
+            {role === 'stationManager' && renderStationManagerFields()}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center py-3 px-4 mt-2 bg-gradient-to-r from-primary-500 to-primary-600 text-white font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="w-full bg-gradient-to-r from-primary-500 to-primary-600 text-white font-bold py-3 px-4 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center"
             >
-              {loading ? 'Creating Account...' : 'Create Account'}
+                {loading ? 'Creating Account...' : 'Sign Up'}
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-700" /></div>
-            <div className="relative flex justify-center text-sm"><span className="px-2 bg-slate-800 text-slate-400">Or continue with</span></div>
-          </div>
-
-          {/* Google Sign In */}
-          <button
-            onClick={handleGoogleLogin}
-            disabled={googleLoading}
-            className="w-full flex items-center justify-center py-3 px-4 border border-slate-600 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors disabled:opacity-50"
-          >
-            <FcGoogle className="h-5 w-5 mr-3" />
-            <span className="font-medium">{googleLoading ? 'Redirecting...' : 'Sign up with Google'}</span>
-          </button>
-        </div>
-
-        {/* Login Link */}
-        <div className="text-center mt-8">
-          <p className="text-slate-400">
+          <p className="text-center text-slate-400 mt-8">
             Already have an account?{' '}
-            <Link to="/login" className="font-medium text-primary-400 hover:text-primary-300 transition-colors">
-              Log in
+            <Link to="/login" className="font-medium text-primary-400 hover:text-primary-300">
+              Log In
             </Link>
           </p>
         </div>

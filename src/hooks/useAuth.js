@@ -7,7 +7,7 @@ import {
   GoogleAuthProvider,
   signInWithPopup
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, addDoc, collection } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
 const AuthContext = createContext({});
@@ -62,13 +62,36 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const signup = async (email, password, userData = {}) => {
+  const signup = async (email, password, displayName, role, stationDetails = {}) => {
     try {
+      // 1. Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await createUserProfile(userCredential.user.uid, {
+      const user = userCredential.user;
+
+      // 2. Create user profile in Firestore 'users' collection
+      await setDoc(doc(db, 'users', user.uid), {
+        uid: user.uid,
         email,
-        ...userData
+        displayName,
+        role,
+        createdAt: new Date(),
       });
+
+      // 3. If role is stationManager, create a station in 'stations' collection
+      if (role === 'stationManager' && stationDetails.name && stationDetails.location) {
+        await addDoc(collection(db, 'stations'), {
+          managerId: user.uid,
+          name: stationDetails.name,
+          address: stationDetails.address,
+          location: stationDetails.location,
+          totalSlots: 5, // Default value
+          availableSlots: 5, // Default value
+          pricePerHour: 150, // Default value
+          status: 'available', // Default status
+          createdAt: new Date(),
+        });
+      }
+
       return userCredential;
     } catch (error) {
       console.error('Signup error:', error);

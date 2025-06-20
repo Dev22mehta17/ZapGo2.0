@@ -50,7 +50,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white font-sans p-4">
+    <div className="min-h-screen-minus-nav flex items-center justify-center text-white font-sans p-4">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
