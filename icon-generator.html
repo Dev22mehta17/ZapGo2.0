@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ZapGo Icon Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .icon-preview {
+            display: inline-block;
+            margin: 10px;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            background: white;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1d4ed8;
+        }
+        .download-all {
+            background: #10b981;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>ZapGo Icon Generator</h1>
+    <p>Click on any icon below to download it, or use "Download All" to get all sizes.</p>
+    
+    <div id="icon-container"></div>
+    
+    <button class="download-all" onclick="downloadAll()">Download All Icons</button>
+    
+    <script>
+        const sizes = [16, 32, 64, 192, 512];
+        const container = document.getElementById('icon-container');
+        
+        function createIcon(size) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Create gradient background
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#3b82f6');
+            gradient.addColorStop(1, '#1d4ed8');
+            
+            // Draw rounded rectangle background
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            const radius = size * 0.15;
+            ctx.moveTo(radius, 0);
+            ctx.lineTo(size - radius, 0);
+            ctx.quadraticCurveTo(size, 0, size, radius);
+            ctx.lineTo(size, size - radius);
+            ctx.quadraticCurveTo(size, size, size - radius, size);
+            ctx.lineTo(radius, size);
+            ctx.quadraticCurveTo(0, size, 0, size - radius);
+            ctx.lineTo(0, radius);
+            ctx.quadraticCurveTo(0, 0, radius, 0);
+            ctx.fill();
+            
+            // Draw lightning bolt
+            ctx.fillStyle = 'white';
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = size * 0.02;
+            
+            const centerX = size / 2;
+            const centerY = size / 2;
+            
+            // Lightning bolt path
+            ctx.beginPath();
+            ctx.moveTo(centerX, size * 0.15);
+            ctx.lineTo(centerX + size * 0.125, size * 0.39);
+            ctx.lineTo(centerX + size * 0.28, size * 0.39);
+            ctx.lineTo(centerX + size * 0.16, size * 0.55);
+            ctx.lineTo(centerX + size * 0.24, size * 0.78);
+            ctx.lineTo(centerX, size * 0.62);
+            ctx.lineTo(centerX - size * 0.24, size * 0.78);
+            ctx.lineTo(centerX - size * 0.16, size * 0.55);
+            ctx.lineTo(centerX - size * 0.28, size * 0.39);
+            ctx.lineTo(centerX - size * 0.125, size * 0.39);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Center circle
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, size * 0.12, 0, 2 * Math.PI);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, size * 0.08, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            return canvas;
+        }
+        
+        function downloadIcon(canvas, filename) {
+            canvas.toBlob(function(blob) {
+                const link = document.createElement('a');
+                link.download = filename;
+                link.href = URL.createObjectURL(blob);
+                link.click();
+            }, 'image/png');
+        }
+        
+        function downloadAll() {
+            sizes.forEach(size => {
+                const canvas = createIcon(size);
+                const filename = size === 512 ? 'logo512.png' : 
+                               size === 192 ? 'logo192.png' : 
+                               size === 64 ? 'favicon-64.png' :
+                               size === 32 ? 'favicon-32.png' :
+                               'favicon-16.png';
+                
+                setTimeout(() => downloadIcon(canvas, filename), size * 10);
+            });
+        }
+        
+        // Create icon previews
+        sizes.forEach(size => {
+            const canvas = createIcon(size);
+            const filename = size === 512 ? 'logo512.png' : 
+                           size === 192 ? 'logo192.png' : 
+                           size === 64 ? 'favicon-64.png' :
+                           size === 32 ? 'favicon-32.png' :
+                           'favicon-16.png';
+            
+            const div = document.createElement('div');
+            div.className = 'icon-preview';
+            div.innerHTML = `
+                <canvas width="${size}" height="${size}"></canvas>
+                <br>
+                <button onclick="downloadIcon(this.previousElementSibling.previousElementSibling, '${filename}')">
+                    Download ${size}x${size}
+                </button>
+            `;
+            
+            // Copy the canvas content
+            const newCanvas = div.querySelector('canvas');
+            const newCtx = newCanvas.getContext('2d');
+            newCtx.drawImage(canvas, 0, 0);
+            
+            container.appendChild(div);
+        });
+    </script>
+</body>
+</html> 
