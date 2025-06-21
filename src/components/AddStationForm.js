@@ -100,39 +100,39 @@ const AddStationForm = ({ stationToEdit, onSuccess, onClose }) => {
   };
 
   return (
-    <div className="bg-white p-8 rounded-lg shadow-lg border border-gray-200">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">
+    <div className="bg-slate-800 p-8 rounded-lg shadow-lg border border-slate-700">
+        <h2 className="text-2xl font-bold text-white mb-6">
           {stationToEdit ? 'Edit Station' : 'Add New Station'}
         </h2>
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="md:col-span-2">
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700">Station Name</label>
-                <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} required className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
+                <label htmlFor="name" className="block text-sm font-medium text-slate-300">Station Name</label>
+                <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} required className="mt-1 w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-white placeholder-slate-400" />
             </div>
             
             <div className="md:col-span-2">
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700">Address</label>
-                <input type="text" name="address" id="address" value={formData.location.address} onChange={handleChange} required className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
+                <label htmlFor="address" className="block text-sm font-medium text-slate-300">Address</label>
+                <input type="text" name="address" id="address" value={formData.location.address} onChange={handleChange} required className="mt-1 w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-white placeholder-slate-400" />
             </div>
 
             <div>
-                <label htmlFor="totalSlots" className="block text-sm font-medium text-gray-700">Total Slots</label>
-                <input type="number" name="totalSlots" id="totalSlots" value={formData.totalSlots} onChange={handleChange} required min="0" className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
+                <label htmlFor="totalSlots" className="block text-sm font-medium text-slate-300">Total Slots</label>
+                <input type="number" name="totalSlots" id="totalSlots" value={formData.totalSlots} onChange={handleChange} required min="0" className="mt-1 w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-white placeholder-slate-400" />
             </div>
             
             <div>
-                <label htmlFor="availableSlots" className="block text-sm font-medium text-gray-700">Available Slots</label>
-                <input type="number" name="availableSlots" id="availableSlots" value={formData.availableSlots} onChange={handleChange} required min="0" className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
+                <label htmlFor="availableSlots" className="block text-sm font-medium text-slate-300">Available Slots</label>
+                <input type="number" name="availableSlots" id="availableSlots" value={formData.availableSlots} onChange={handleChange} required min="0" className="mt-1 w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-white placeholder-slate-400" />
             </div>
             
             <div>
-                <label htmlFor="pricePerHour" className="block text-sm font-medium text-gray-700">Price per Hour ($)</label>
-                <input type="number" name="pricePerHour" id="pricePerHour" value={formData.pricePerHour} onChange={handleChange} required min="0" step="0.01" className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
+                <label htmlFor="pricePerHour" className="block text-sm font-medium text-slate-300">Price per Hour ($)</label>
+                <input type="number" name="pricePerHour" id="pricePerHour" value={formData.pricePerHour} onChange={handleChange} required min="0" step="0.01" className="mt-1 w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-white placeholder-slate-400" />
             </div>
             
             <div>
-                <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status</label>
-                <select name="status" id="status" value={formData.status} onChange={handleChange} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md">
+                <label htmlFor="status" className="block text-sm font-medium text-slate-300">Status</label>
+                <select name="status" id="status" value={formData.status} onChange={handleChange} className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-slate-700 border border-slate-600 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md text-white">
                     <option value="available">Available</option>
                     <option value="busy">Busy</option>
                     <option value="offline">Offline</option>
@@ -140,12 +140,12 @@ const AddStationForm = ({ stationToEdit, onSuccess, onClose }) => {
             </div>
             
             <div className="md:col-span-2">
-                <label htmlFor="amenities" className="block text-sm font-medium text-gray-700">Amenities (comma-separated)</label>
-                <input type="text" name="amenities" id="amenities" value={formData.amenities} onChange={handleChange} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
+                <label htmlFor="amenities" className="block text-sm font-medium text-slate-300">Amenities (comma-separated)</label>
+                <input type="text" name="amenities" id="amenities" value={formData.amenities} onChange={handleChange} className="mt-1 w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-white placeholder-slate-400" />
             </div>
 
             <div className="md:col-span-2 flex justify-end space-x-3 pt-4">
-                <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                <button type="button" onClick={onClose} className="px-4 py-2 border border-slate-600 rounded-md shadow-sm text-sm font-medium text-slate-300 bg-slate-700 hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                     Cancel
                 </button>
                 <button type="submit" disabled={loading} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:bg-gray-400">
