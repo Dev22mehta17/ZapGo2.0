@@ -59,7 +59,7 @@ const Signup = () => {
     try {
       await signup(email, password, displayName, role, stationDetails);
       toast.success('Account created successfully! Welcome.');
-      navigate(role === 'stationManager' ? '/station-manager-dashboard' : '/');
+      navigate(role === 'stationManager' ? '/station-manager' : '/');
     } catch (err) {
       setError(err.message);
       toast.error(err.message);

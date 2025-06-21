@@ -18,7 +18,7 @@ const Layout = ({ children }) => {
   if (user?.role === 'admin') {
     navLinks.push({ name: 'Admin', href: '/admin', icon: FiSettings });
   } else if (user?.role === 'stationManager') {
-    navLinks.push({ name: 'My Stations', href: '/station-manager-dashboard', icon: FiBarChart });
+    navLinks.push({ name: 'My Stations', href: '/station-manager', icon: FiBarChart });
   }
 
   const isNavLinkActive = (path) => location.pathname === path;

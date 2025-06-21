@@ -30,7 +30,7 @@ function App() {
     if (!user) return <Navigate to="/login" />;
     
     switch (user.role) {
-      case 'station_manager':
+      case 'stationManager':
         return (
           <Layout>
             <StationManagerDashboard />
@@ -118,7 +118,7 @@ function App() {
         <Route
           path="/station-manager"
           element={
-            user?.role === 'station_manager' ? (
+            user?.role === 'stationManager' ? (
               <Layout>
                 <StationManagerDashboard />
               </Layout>
