@@ -163,7 +163,7 @@ const StationManagerDashboard = () => {
       );
 
       const userWalletAddress = booking.userWalletAddress || "0x0000000000000000000000000000000000000000"; // Placeholder if not available
-      const startTime = booking.startTime.toDate();
+      const startTime = booking.startTime;
       const endTime = new Date(startTime.getTime() + booking.duration * 60 * 60 * 1000);
 
       // Find an available port
