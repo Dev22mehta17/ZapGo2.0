@@ -62,8 +62,8 @@ const BookingCard = ({ booking, userRole, openDeleteModal }) => {
           <div className="flex items-center">
             <FiClock className="mr-2 h-5 w-5 text-primary-400" />
             <div>
-              <p className="text-xs text-slate-400">Time</p>
-              <p className="font-semibold">{formatTime(booking.startTime)} - {formatTime(booking.endTime)}</p>
+              <p className="text-xs text-slate-400">Time & Port</p>
+              <p className="font-semibold">{formatTime(booking.startTime)} - {formatTime(booking.endTime)} {booking.portNumber && `(Port ${booking.portNumber})`}</p>
             </div>
           </div>
           {userRole === 'stationManager' && booking.userDetails && (
@@ -78,13 +78,25 @@ const BookingCard = ({ booking, userRole, openDeleteModal }) => {
         </div>
       </div>
       
-      <div className="flex-shrink-0 flex items-center gap-2 pt-4 md:pt-0 self-start md:self-center">
-        <Link to={`/station/${booking.stationId}`} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-full transition-colors">
-          <FiExternalLink className="h-5 w-5" />
-        </Link>
-        <button onClick={() => openDeleteModal(booking)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-slate-700 rounded-full transition-colors">
-          <FiTrash2 className="h-5 w-5" />
-        </button>
+      <div className="flex-shrink-0 flex flex-col items-end gap-2 pt-4 md:pt-0 self-start md:self-center">
+        <div className="flex items-center gap-2">
+          <Link to={`/station/${booking.stationId}`} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-full transition-colors">
+            <FiExternalLink className="h-5 w-5" />
+          </Link>
+          <button onClick={() => openDeleteModal(booking)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-slate-700 rounded-full transition-colors">
+            <FiTrash2 className="h-5 w-5" />
+          </button>
+        </div>
+        {booking.transactionHash && (
+          <a
+            href={`https://sepolia.etherscan.io/tx/${booking.transactionHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 text-xs text-blue-400 hover:underline flex items-center gap-1"
+          >
+            View On-Chain <FiExternalLink className="h-3 w-3" />
+          </a>
+        )}
       </div>
     </div>
   );
@@ -112,11 +124,24 @@ const MyBookings = () => {
         let bookingsQuery;
         
         if (userRole === 'stationManager') {
-          bookingsQuery = query(
-            collection(db, 'bookings'),
-            where('stationManagerId', '==', user.uid),
-            orderBy('startTime', 'desc')
-          );
+          // 1. Find all stations managed by this user
+          const stationsQuery = query(collection(db, 'stations'), where('managerId', '==', user.uid));
+          const stationsSnapshot = await getDocs(stationsQuery);
+          const stationIds = stationsSnapshot.docs.map(doc => doc.id);
+
+          // 2. Find all bookings for those stations
+          if (stationIds.length > 0) {
+            bookingsQuery = query(
+              collection(db, 'bookings'),
+              where('stationId', 'in', stationIds),
+              orderBy('startTime', 'desc')
+            );
+          } else {
+            // No stations found for this manager, so no bookings to fetch
+            setBookings([]);
+            setLoading(false);
+            return;
+          }
         } else {
           bookingsQuery = query(
             collection(db, 'bookings'),

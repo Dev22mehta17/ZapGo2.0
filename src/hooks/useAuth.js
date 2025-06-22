@@ -26,6 +26,7 @@ export const AuthProvider = ({ children }) => {
           setUser({
             ...user,
             role: userData?.role || 'user',
+            profileComplete: userData?.profileComplete,
           });
         } catch (error) {
           console.error('Error fetching user data:', error);
@@ -69,13 +70,19 @@ export const AuthProvider = ({ children }) => {
       const user = userCredential.user;
 
       // 2. Create user profile in Firestore 'users' collection
-      await setDoc(doc(db, 'users', user.uid), {
+      const userProfile = {
         uid: user.uid,
         email,
         displayName,
         role,
         createdAt: new Date(),
-      });
+      };
+
+      if (role === 'stationManager') {
+        userProfile.profileComplete = false;
+      }
+
+      await setDoc(doc(db, 'users', user.uid), userProfile);
 
       // 3. If role is stationManager, create a station in 'stations' collection
       if (role === 'stationManager' && stationDetails.name && stationDetails.location) {
@@ -132,6 +139,26 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const refreshAuthUser = async () => {
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        const userData = userDoc.data();
+        setUser(prevUser => ({
+          ...prevUser,
+          ...user,
+          role: userData?.role || 'user',
+          profileComplete: userData?.profileComplete,
+          displayName: userData?.displayName,
+          phoneNumber: userData?.phoneNumber,
+        }));
+      } catch (error) {
+        console.error('Error refreshing user data:', error);
+      }
+    }
+  };
+
   const logout = async () => {
     try {
       return await signOut(auth);
@@ -149,6 +176,7 @@ export const AuthProvider = ({ children }) => {
       signup,
       loginWithGoogle,
       logout,
+      refreshAuthUser,
     }}>
       {children}
     </AuthContext.Provider>

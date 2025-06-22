@@ -5,6 +5,9 @@ import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 import PaymentModal from './PaymentModal';
+import { ethers } from 'ethers';
+import { BOOKING_CONTRACT_ADDRESS } from '../config/blockchain';
+import BookingArtifact from '../Booking.json';
 
 const BookingForm = ({ station, onSubmit, isBooking }) => {
   const { user } = useAuth();
@@ -16,6 +19,23 @@ const BookingForm = ({ station, onSubmit, isBooking }) => {
   const [duration, setDuration] = useState(1); // in hours
   const [vehicleType, setVehicleType] = useState('car');
   const [totalPrice, setTotalPrice] = useState(station.pricePerHour);
+
+  const connectWallet = async () => {
+    try {
+      if (!window.ethereum) {
+        toast.error("MetaMask is not installed. Please install it to use this feature.");
+        return null;
+      }
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+      const signer = await provider.getSigner();
+      return signer;
+    } catch (error) {
+      console.error("Failed to connect wallet:", error);
+      toast.error("Failed to connect wallet. Please try again.");
+      return null;
+    }
+  };
 
   useEffect(() => {
     if (station && station.pricePerHour && duration > 0) {
@@ -104,6 +124,8 @@ const BookingForm = ({ station, onSubmit, isBooking }) => {
     setLoading(true);
 
     try {
+      // This is the simulated payment confirmation.
+      // We will now save the booking to Firestore with a 'pending' status.
       const bookingStartTime = new Date(`${bookingDate}T${startTime}`);
       const bookingData = {
         stationId: station.id,
@@ -114,13 +136,13 @@ const BookingForm = ({ station, onSubmit, isBooking }) => {
         duration: parseInt(duration),
         vehicleType: vehicleType,
         notes: '',
-        status: 'confirmed',
+        status: 'pending', // Status is now 'pending'
         totalPrice: totalPrice,
         createdAt: serverTimestamp(),
-        paymentStatus: 'completed'
+        paymentStatus: 'completed' // Assuming payment was successful
       };
 
-      // Create booking
+      // Create booking in Firestore
       const bookingRef = await addDoc(collection(db, 'bookings'), bookingData);
 
       // Update station's available slots
@@ -128,7 +150,7 @@ const BookingForm = ({ station, onSubmit, isBooking }) => {
         availableSlots: station.availableSlots - 1
       });
 
-      toast.success('Booking confirmed successfully!');
+      toast.success('Booking submitted! It will be confirmed on-chain by an admin shortly.');
       setShowPaymentModal(false);
       navigate('/my-bookings');
     } catch (error) {
