@@ -80,12 +80,12 @@ const BookingCard = ({ booking, userRole, openDeleteModal }) => {
       
       <div className="flex-shrink-0 flex flex-col items-end gap-2 pt-4 md:pt-0 self-start md:self-center">
         <div className="flex items-center gap-2">
-          <Link to={`/station/${booking.stationId}`} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-full transition-colors">
-            <FiExternalLink className="h-5 w-5" />
-          </Link>
-          <button onClick={() => openDeleteModal(booking)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-slate-700 rounded-full transition-colors">
-            <FiTrash2 className="h-5 w-5" />
-          </button>
+        <Link to={`/station/${booking.stationId}`} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-full transition-colors">
+          <FiExternalLink className="h-5 w-5" />
+        </Link>
+        <button onClick={() => openDeleteModal(booking)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-slate-700 rounded-full transition-colors">
+          <FiTrash2 className="h-5 w-5" />
+        </button>
         </div>
         {booking.transactionHash && (
           <a
@@ -131,11 +131,11 @@ const MyBookings = () => {
 
           // 2. Find all bookings for those stations
           if (stationIds.length > 0) {
-            bookingsQuery = query(
-              collection(db, 'bookings'),
+          bookingsQuery = query(
+            collection(db, 'bookings'),
               where('stationId', 'in', stationIds),
-              orderBy('startTime', 'desc')
-            );
+            orderBy('startTime', 'desc')
+          );
           } else {
             // No stations found for this manager, so no bookings to fetch
             setBookings([]);

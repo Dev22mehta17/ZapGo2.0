@@ -20,6 +20,10 @@ const zapgoIcon = {
   url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
   scaledSize: { width: 40, height: 40 },
 };
+const railwayIcon = {
+  url: 'https://maps.google.com/mapfiles/ms/icons/rail.png',
+  scaledSize: { width: 40, height: 40 },
+};
 const googleIcon = {
   url: 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png',
   scaledSize: { width: 40, height: 40 },
@@ -252,7 +256,7 @@ const Map = ({ center = defaultCenter, zoom = defaultZoom, stations = [], onStat
               lat: station.location.lat,
               lng: station.location.lng,
             }}
-            icon={station.source === 'google' ? googleIcon : zapgoIcon}
+            icon={station.source === 'google' ? railwayIcon : zapgoIcon}
             onClick={() => handleStationClick(station)}
           />
         ))}
@@ -281,41 +285,65 @@ const Map = ({ center = defaultCenter, zoom = defaultZoom, stations = [], onStat
           }}
           onCloseClick={() => setSelectedStation(null)}
         >
-          <div className="p-2 text-gray-800">
-            <h3 className="font-semibold text-lg mb-2">{selectedStation.name}</h3>
-            <p className="text-sm mb-1">
-              <span className="font-bold">Source:</span> {selectedStation.source === 'google' ? 'Google Maps' : 'ZapGo'}
-            </p>
-            {selectedStation.status && (
-              <p className="text-sm">
-                Status: <span className={`font-bold ${
-                  selectedStation.status === 'available' ? 'text-green-600' :
-                  selectedStation.status === 'busy' ? 'text-red-600' :
-                  'text-gray-500'
-                }`}>{selectedStation.status?.charAt(0).toUpperCase() + selectedStation.status?.slice(1)}</span>
+          <div className="p-4 text-gray-800 min-w-[280px] max-w-[320px]">
+            <h3 className="font-semibold text-lg mb-3 text-gray-900">{selectedStation.name}</h3>
+            <div className="space-y-2">
+              <p className="text-sm mb-2">
+                <span className="font-bold text-gray-700">Source:</span> 
+                <span className="ml-1 text-gray-600">{selectedStation.source === 'google' ? 'Railway Station' : 'ZapGo'}</span>
               </p>
-            )}
-            {selectedStation.totalPorts && (
-              <p className="text-sm">
-                Total Ports: {selectedStation.totalPorts ?? 'N/A'}
-              </p>
-            )}
-            {selectedStation.availableSlots && (
-              <p className="text-sm">
-                Available Slots: {selectedStation.availableSlots ?? 'N/A'}
-              </p>
-            )}
-            {selectedStation.location.address && (
-              <p className="text-sm mt-1">{selectedStation.location.address}</p>
-            )}
+              {selectedStation.source === 'google' && selectedStation.rating && (
+                <p className="text-sm">
+                  <span className="font-bold text-gray-700">Rating:</span> 
+                  <span className="ml-1 text-gray-600">⭐ {selectedStation.rating}/5 ({selectedStation.user_ratings_total} reviews)</span>
+                </p>
+              )}
+              {selectedStation.status && (
+                <p className="text-sm">
+                  <span className="font-bold text-gray-700">Status:</span> 
+                  <span className={`ml-1 font-bold ${
+                    selectedStation.status === 'available' ? 'text-green-600' :
+                    selectedStation.status === 'busy' ? 'text-red-600' :
+                    'text-gray-500'
+                  }`}>{selectedStation.status?.charAt(0).toUpperCase() + selectedStation.status?.slice(1)}</span>
+                </p>
+              )}
+              {selectedStation.totalPorts && (
+                <p className="text-sm">
+                  <span className="font-bold text-gray-700">Total Ports:</span> 
+                  <span className="ml-1 text-gray-600">{selectedStation.totalPorts ?? 'N/A'}</span>
+                </p>
+              )}
+              {selectedStation.availableSlots && (
+                <p className="text-sm">
+                  <span className="font-bold text-gray-700">Available Slots:</span> 
+                  <span className="ml-1 text-gray-600">{selectedStation.availableSlots ?? 'N/A'}</span>
+                </p>
+              )}
+              {selectedStation.location.address && (
+                <p className="text-sm mt-3 text-gray-600 border-t pt-2">{selectedStation.location.address}</p>
+              )}
+            </div>
             {selectedStation.source !== 'google' && (
-              <div className="mt-3">
+              <div className="mt-4 pt-3 border-t border-gray-200">
                 <Link
                   to={`/station/${selectedStation.id}`}
-                  className="inline-block px-4 py-2 bg-primary-600 text-white text-xs font-bold rounded-md hover:bg-primary-700 transition-colors"
+                  className="inline-block px-4 py-2 bg-primary-600 text-white text-sm font-bold rounded-md hover:bg-primary-700 transition-colors"
                 >
                   Book Now
                 </Link>
+              </div>
+            )}
+            {selectedStation.source === 'google' && (
+              <div className="mt-4 pt-3 border-t border-gray-200">
+                <a
+                  href={`https://www.google.com/maps/place/?q=place_id:${selectedStation.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  View on Google Maps
+                </a>
               </div>
             )}
           </div>
@@ -327,4 +355,4 @@ const Map = ({ center = defaultCenter, zoom = defaultZoom, stations = [], onStat
   );
 };
 
-export default Map; 
+export default Map;
