@@ -169,31 +169,8 @@ const RoutePlanner = () => {
       
       // 3. Get stations along the route path (not within radius)
       const routePath = route.overview_path;
-      console.log('Route path points:', routePath.length);
-      
       const routeStations = await getStationsAlongRoute(routePath);
-      console.log('ZapGo stations along route:', routeStations.length);
-      console.log('ZapGo stations along route:', routeStations.map(s => ({ name: s.name, lat: s.location.lat, lng: s.location.lng })));
-      
-      const googleStations = await getGoogleRailwayStations(routePath);
-      console.log('Google railway stations along route:', googleStations.length);
-      
-      // Combine and filter stations to only those along the actual route
-      const allStations = [...routeStations, ...googleStations];
-      const stationsAlongPath = filterStationsAlongPath(allStations, routePath);
-      
-      console.log('Final filtered stations:', stationsAlongPath.length);
-      console.log('Final stations:', stationsAlongPath.map(s => ({ name: s.name, source: s.source, lat: s.location.lat, lng: s.location.lng })));
-      
-      // Fallback: if no ZapGo stations found along path, show all ZapGo stations
-      const zapgoStationsInPath = stationsAlongPath.filter(s => s.source === 'zapgo');
-      if (zapgoStationsInPath.length === 0 && routeStations.length > 0) {
-        console.log('No ZapGo stations found along path, showing all ZapGo stations as fallback');
-        const fallbackStations = [...routeStations, ...googleStations];
-        setFilteredStations(fallbackStations);
-      } else {
-        setFilteredStations(stationsAlongPath);
-      }
+      setFilteredStations(routeStations);
       
       // 4. Find and sort all stations along the route path
       const cumulativeDistances = [0];
@@ -201,7 +178,7 @@ const RoutePlanner = () => {
           cumulativeDistances[i] = cumulativeDistances[i-1] + google.maps.geometry.spherical.computeDistanceBetween(decodedPolyline[i-1], decodedPolyline[i]);
       }
 
-      const stationsAlongRoute = stationsAlongPath.map(station => {
+      const stationsAlongRoute = routeStations.map(station => {
           const stationLatLng = new google.maps.LatLng(station.location.lat, station.location.lng);
           let closestPointIndex = 0;
           let minDistance = Infinity;
@@ -224,7 +201,7 @@ const RoutePlanner = () => {
       }).filter(Boolean).sort((a, b) => a.distanceAlongRoute - b.distanceAlongRoute);
       
       console.log('Total stations along route:', stationsAlongRoute.length);
-      console.log('Route stations:', stationsAlongRoute.map(s => ({ name: s.name, distance: s.distanceAlongRoute, source: s.source })));
+      console.log('Route stations:', stationsAlongRoute.map(s => ({ name: s.name, distance: s.distanceAlongRoute })));
       
       // Calculate which stations are reachable with current charge
       const currentRangeKm = (vehicleConfig.currentCharge / 100) * vehicleConfig.maxRange;
@@ -282,90 +259,6 @@ const RoutePlanner = () => {
     } finally {
         setLoading(false);
     }
-  };
-
-  // Function to fetch Google Maps railway stations along the route path
-  const getGoogleRailwayStations = async (routePath) => {
-    const stations = [];
-    
-    try {
-      // Create a proper map instance for PlacesService
-      const mapDiv = document.createElement('div');
-      const map = new google.maps.Map(mapDiv, {
-        center: routePath[Math.floor(routePath.length / 2)],
-        zoom: 10
-      });
-      const placesService = new google.maps.places.PlacesService(map);
-      
-      // Search for railway stations at key points along the route
-      // Focus on major waypoints and cities along the path
-      const searchPoints = [];
-      const step = Math.max(1, Math.floor(routePath.length / 8)); // 8 search points along route
-      for (let i = 0; i < routePath.length; i += step) {
-        searchPoints.push(routePath[i]);
-      }
-      
-      // Also add start and end points
-      if (routePath.length > 0) {
-        searchPoints.unshift(routePath[0]); // Start point
-        searchPoints.push(routePath[routePath.length - 1]); // End point
-      }
-      
-      for (const point of searchPoints) {
-        try {
-          const request = {
-            location: point,
-            radius: 15000, // 15km radius to catch nearby cities
-            type: 'train_station'
-          };
-          
-          const results = await new Promise((resolve, reject) => {
-            placesService.nearbySearch(request, (results, status) => {
-              if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-                resolve(results);
-              } else {
-                console.warn(`Places API status: ${status} for point:`, point);
-                resolve([]); // Resolve with empty array instead of rejecting
-              }
-            });
-          });
-          
-          // Add unique stations to the array
-          results.forEach(place => {
-            const existingStation = stations.find(s => 
-              s.location.lat === place.geometry.location.lat() && 
-              s.location.lng === place.geometry.location.lng()
-            );
-            
-            if (!existingStation) {
-              stations.push({
-                id: place.place_id,
-                name: place.name,
-                location: {
-                  lat: place.geometry.location.lat(),
-                  lng: place.geometry.location.lng(),
-                  address: place.vicinity
-                },
-                source: 'google',
-                rating: place.rating || null,
-                user_ratings_total: place.user_ratings_total || 0,
-                types: place.types || [],
-                status: 'available' // Assume available for Google stations
-              });
-            }
-          });
-        } catch (error) {
-          console.warn('Error fetching Google stations at point:', error);
-          // Continue with other points instead of failing completely
-        }
-      }
-    } catch (error) {
-      console.error('Error initializing Google Places service:', error);
-      // Return empty array if Google Places fails completely
-    }
-    
-    console.log('Google railway stations found along route:', stations.length);
-    return stations;
   };
 
   // Function to get ZapGo stations along the route
@@ -429,14 +322,6 @@ const RoutePlanner = () => {
       }
     }
     return false;
-  };
-
-  // Function to filter stations to only those along the route path
-  const filterStationsAlongPath = (stations, routePath) => {
-    return stations.filter(station => {
-      const stationLatLng = new google.maps.LatLng(station.location.lat, station.location.lng);
-      return isPointAlongPath(stationLatLng, routePath, 5000); // 5km tolerance
-    });
   };
 
   useLayoutEffect(() => {

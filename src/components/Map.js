@@ -20,10 +20,6 @@ const zapgoIcon = {
   url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
   scaledSize: { width: 40, height: 40 },
 };
-const railwayIcon = {
-  url: 'https://maps.google.com/mapfiles/ms/icons/rail.png',
-  scaledSize: { width: 40, height: 40 },
-};
 const googleIcon = {
   url: 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png',
   scaledSize: { width: 40, height: 40 },
@@ -248,7 +244,7 @@ const Map = ({ center = defaultCenter, zoom = defaultZoom, stations = [], onStat
     >
       {/* Station Markers */}
       {stations
-        .filter(station => station.location && typeof station.location.lat === 'number' && typeof station.location.lng === 'number')
+        .filter(station => station.location && typeof station.location.lat === 'number' && typeof station.location.lng === 'number' && station.source !== 'google')
         .map((station) => (
           <Marker
             key={station.id}
@@ -256,7 +252,7 @@ const Map = ({ center = defaultCenter, zoom = defaultZoom, stations = [], onStat
               lat: station.location.lat,
               lng: station.location.lng,
             }}
-            icon={station.source === 'google' ? railwayIcon : zapgoIcon}
+            icon={zapgoIcon}
             onClick={() => handleStationClick(station)}
           />
         ))}
@@ -290,7 +286,7 @@ const Map = ({ center = defaultCenter, zoom = defaultZoom, stations = [], onStat
             <div className="space-y-2">
               <p className="text-sm mb-2">
                 <span className="font-bold text-gray-700">Source:</span> 
-                <span className="ml-1 text-gray-600">{selectedStation.source === 'google' ? 'Railway Station' : 'ZapGo'}</span>
+                <span className="ml-1 text-gray-600">ZapGo</span>
               </p>
               {selectedStation.source === 'google' && selectedStation.rating && (
                 <p className="text-sm">
@@ -332,18 +328,6 @@ const Map = ({ center = defaultCenter, zoom = defaultZoom, stations = [], onStat
                 >
                   Book Now
                 </Link>
-              </div>
-            )}
-            {selectedStation.source === 'google' && (
-              <div className="mt-4 pt-3 border-t border-gray-200">
-                <a
-                  href={`https://www.google.com/maps/place/?q=place_id:${selectedStation.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  View on Google Maps
-                </a>
               </div>
             )}
           </div>
