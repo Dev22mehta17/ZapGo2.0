@@ -5,8 +5,9 @@ import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 import { FiCalendar, FiClock, FiMapPin, FiUser, FiZap, FiX, FiTrash2, FiAlertTriangle, FiExternalLink, FiLoader, FiInbox } from 'react-icons/fi';
+import ArrivalTracker from '../components/ArrivalTracker';
 
-const BookingCard = ({ booking, userRole, openDeleteModal }) => {
+const BookingCard = ({ booking, userRole, openDeleteModal, onBookingUpdate }) => {
   const getStatusClasses = (status) => {
     switch (status) {
       case 'confirmed':
@@ -15,8 +16,34 @@ const BookingCard = ({ booking, userRole, openDeleteModal }) => {
         return 'bg-green-500/20 text-green-300 border-green-500/30';
       case 'cancelled':
         return 'bg-red-500/20 text-red-300 border-red-500/30';
+      case 'pending':
+        return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
       default:
         return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
+    }
+  };
+
+  const getPaymentTypeText = (paymentType) => {
+    switch (paymentType) {
+      case 'booking':
+        return 'Partial (20%)';
+      case 'full':
+        return 'Full Payment';
+      default:
+        return 'Standard';
+    }
+  };
+
+  const getPaymentMethodText = (paymentMethod) => {
+    switch (paymentMethod) {
+      case 'card':
+        return 'Credit/Debit Card';
+      case 'upi':
+        return 'UPI';
+      case 'wallet':
+        return 'Digital Wallet';
+      default:
+        return 'Unknown';
     }
   };
 
@@ -34,6 +61,21 @@ const BookingCard = ({ booking, userRole, openDeleteModal }) => {
     });
   };
 
+  const getPenaltyStatus = (booking) => {
+    if (booking.arrivalStatus === 'no_show') {
+      return { type: 'no_show', text: 'No-Show Penalty Applied', color: 'text-red-400' };
+    }
+    if (booking.arrivalStatus === 'late') {
+      return { type: 'late', text: 'Late Arrival Penalty Applied', color: 'text-orange-400' };
+    }
+    if (booking.arrivalStatus === 'arrived') {
+      return { type: 'arrived', text: 'Arrived On Time', color: 'text-green-400' };
+    }
+    return null;
+  };
+
+  const penaltyStatus = getPenaltyStatus(booking);
+
   return (
     <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div className="flex-grow">
@@ -41,8 +83,15 @@ const BookingCard = ({ booking, userRole, openDeleteModal }) => {
           <h3 className="text-2xl font-bold text-white mb-2 sm:mb-0">
             {booking.stationName || 'Station Name Not Found'}
           </h3>
-          <div className={`px-3 py-1 text-sm font-bold rounded-full border ${getStatusClasses(booking.status)}`}>
-            {booking.status}
+          <div className="flex items-center space-x-2">
+            <div className={`px-3 py-1 text-sm font-bold rounded-full border ${getStatusClasses(booking.status)}`}>
+              {booking.status}
+            </div>
+            {penaltyStatus && (
+              <div className={`px-3 py-1 text-sm font-bold rounded-full border ${penaltyStatus.color} bg-slate-700/50`}>
+                {penaltyStatus.text}
+              </div>
+            )}
           </div>
         </div>
         
@@ -76,6 +125,67 @@ const BookingCard = ({ booking, userRole, openDeleteModal }) => {
             </div>
           )}
         </div>
+
+        {/* Payment Information */}
+        {booking.paymentType && (
+          <div className="mt-4 p-3 bg-slate-700/30 rounded-lg border border-slate-600">
+            <h4 className="text-sm font-semibold text-white mb-2">Payment Details</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Payment Type:</span>
+                <span className="text-white font-medium">{getPaymentTypeText(booking.paymentType)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Payment Method:</span>
+                <span className="text-white font-medium">{getPaymentMethodText(booking.paymentMethod)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Amount Paid:</span>
+                <span className="text-green-400 font-medium">${booking.paymentAmount?.toFixed(2) || booking.totalPrice?.toFixed(2) || 'N/A'}</span>
+              </div>
+              {booking.paymentType === 'booking' && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Remaining Balance:</span>
+                  <span className="text-yellow-400 font-medium">${((booking.totalPrice || 0) - (booking.paymentAmount || 0)).toFixed(2)}</span>
+                </div>
+              )}
+              {booking.dynamicPricing > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Dynamic Pricing:</span>
+                  <span className="text-yellow-400 font-medium">+${booking.dynamicPricing.toFixed(2)}</span>
+                </div>
+              )}
+              {booking.penalty > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Late Payment Penalty:</span>
+                  <span className="text-red-400 font-medium">+${booking.penalty.toFixed(2)}</span>
+                </div>
+              )}
+              {booking.penaltyAmount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Arrival Penalty:</span>
+                  <span className="text-red-400 font-medium">+${booking.penaltyAmount.toFixed(2)}</span>
+                </div>
+              )}
+              {booking.isRefundable === false && (
+                <div className="col-span-2">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Refund Status:</span>
+                    <span className="text-red-400 font-medium">Non-Refundable</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Arrival Tracker for pending bookings */}
+        {booking.status === 'pending' && booking.arrivalStatus !== 'arrived' && (
+          <ArrivalTracker 
+            booking={booking} 
+            onStatusUpdate={onBookingUpdate}
+          />
+        )}
       </div>
       
       <div className="flex-shrink-0 flex flex-col items-end gap-2 pt-4 md:pt-0 self-start md:self-center">
@@ -237,6 +347,12 @@ const MyBookings = () => {
   
   const userRoleFromAuth = useAuth().user?.role;
 
+  const handleBookingUpdate = (updatedBooking) => {
+    setBookings(prev => prev.map(booking => 
+      booking.id === updatedBooking.id ? updatedBooking : booking
+    ));
+  };
+
   const renderContent = () => {
     if (loading) {
       return (
@@ -276,7 +392,13 @@ const MyBookings = () => {
     return (
       <div className="space-y-6">
         {bookings.map((booking) => (
-          <BookingCard key={booking.id} booking={booking} userRole={userRoleFromAuth} openDeleteModal={openDeleteModal} />
+          <BookingCard 
+            key={booking.id} 
+            booking={booking} 
+            userRole={userRoleFromAuth} 
+            openDeleteModal={openDeleteModal}
+            onBookingUpdate={handleBookingUpdate}
+          />
         ))}
       </div>
     );

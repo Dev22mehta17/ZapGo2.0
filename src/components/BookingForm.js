@@ -120,7 +120,7 @@ const BookingForm = ({ station, onSubmit, isBooking }) => {
     }
   };
 
-  const handlePaymentConfirm = async () => {
+  const handlePaymentConfirm = async (paymentDetails) => {
     setLoading(true);
 
     try {
@@ -138,8 +138,22 @@ const BookingForm = ({ station, onSubmit, isBooking }) => {
         notes: '',
         status: 'pending', // Status is now 'pending'
         totalPrice: totalPrice,
+        paymentType: paymentDetails.paymentType, // 'booking' or 'full'
+        paymentMethod: paymentDetails.paymentMethod, // 'card', 'upi', 'wallet'
+        paymentAmount: paymentDetails.amount, // Total amount paid
+        originalAmount: paymentDetails.originalAmount,
+        dynamicPricing: paymentDetails.dynamicPricing,
+        penalty: paymentDetails.penalty,
+        paymentDetails: paymentDetails.paymentDetails, // Card details or UPI ID
         createdAt: serverTimestamp(),
-        paymentStatus: 'completed' // Assuming payment was successful
+        paymentStatus: 'completed', // Assuming payment was successful
+        // No-show penalty tracking
+        noShowPenalty: totalPrice * 0.15, // 15% penalty for no-show
+        lateArrivalPenalty: totalPrice * 0.10, // 10% penalty for late arrival
+        isRefundable: false, // Booking payment is non-refundable
+        arrivalStatus: 'not_arrived', // 'not_arrived', 'arrived', 'late', 'no_show'
+        arrivalTime: null,
+        penaltyApplied: false
       };
 
       // Create booking in Firestore
@@ -150,7 +164,8 @@ const BookingForm = ({ station, onSubmit, isBooking }) => {
         availableSlots: station.availableSlots - 1
       });
 
-      toast.success('Booking submitted! It will be confirmed on-chain by an admin shortly.');
+      const paymentTypeText = paymentDetails.paymentType === 'booking' ? 'partial booking payment' : 'full payment';
+      toast.success(`Booking submitted with ${paymentTypeText}! It will be confirmed on-chain by an admin shortly.`);
       setShowPaymentModal(false);
       navigate('/my-bookings');
     } catch (error) {
@@ -230,6 +245,9 @@ const BookingForm = ({ station, onSubmit, isBooking }) => {
             <p className="text-lg font-semibold text-white">Total Price:</p>
             <p className="text-2xl font-bold text-primary-400">${totalPrice.toFixed(2)}</p>
           </div>
+          <p className="text-sm text-slate-400 mt-1">
+            Choose between 20% booking payment or full payment during checkout
+          </p>
         </div>
 
         <div>
@@ -238,7 +256,7 @@ const BookingForm = ({ station, onSubmit, isBooking }) => {
             disabled={isBooking || station.availableSlots <= 0}
             className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-primary-500 to-primary-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:bg-slate-600 disabled:cursor-not-allowed transition-opacity"
           >
-            {isBooking ? 'Processing...' : (station.availableSlots > 0 ? 'Confirm & Book' : 'Slots Unavailable')}
+            {isBooking ? 'Processing...' : (station.availableSlots > 0 ? 'Proceed to Payment' : 'Slots Unavailable')}
           </button>
         </div>
       </form>
@@ -250,6 +268,14 @@ const BookingForm = ({ station, onSubmit, isBooking }) => {
         amount={totalPrice}
         onConfirm={handlePaymentConfirm}
         loading={loading}
+        bookingDetails={{
+          stationId: station.id,
+          stationName: station.name,
+          date: bookingDate,
+          startTime: startTime,
+          duration: duration,
+          vehicleType: vehicleType
+        }}
       />
     </>
   );
