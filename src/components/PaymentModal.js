@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import { FiCreditCard, FiSmartphone, FiClock, FiAlertTriangle, FiCheck, FiX, FiZap, FiDollarSign, FiPercent } from 'react-icons/fi';
 
 const PaymentModal = ({ isOpen, onClose, amount, onConfirm, loading, bookingDetails }) => {
+  const [mounted, setMounted] = useState(false);
   const [paymentType, setPaymentType] = useState('booking'); // 'booking' or 'full'
   const [paymentMethod, setPaymentMethod] = useState('card'); // 'card', 'upi', 'wallet'
   const [upiId, setUpiId] = useState('');
@@ -16,6 +18,11 @@ const PaymentModal = ({ isOpen, onClose, amount, onConfirm, loading, bookingDeta
   const [dynamicPricing, setDynamicPricing] = useState(0);
   const [penalty, setPenalty] = useState(0);
   const [isPaymentExpired, setIsPaymentExpired] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   // Calculate dynamic pricing based on demand, time, etc.
   useEffect(() => {
@@ -94,9 +101,9 @@ const PaymentModal = ({ isOpen, onClose, amount, onConfirm, loading, bookingDeta
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-xl max-w-2xl w-full mx-auto max-h-[90vh] overflow-y-auto">
+  const modalContent = (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+      <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-xl max-w-2xl w-full mx-auto max-h-[90vh] overflow-y-auto relative">
         {/* Header */}
         <div className="p-6 border-b border-slate-700">
           <div className="flex justify-between items-center">
@@ -400,6 +407,8 @@ const PaymentModal = ({ isOpen, onClose, amount, onConfirm, loading, bookingDeta
       </div>
     </div>
   );
+
+  return mounted ? createPortal(modalContent, document.body) : null;
 };
 
 export default PaymentModal; 
