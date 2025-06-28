@@ -27,10 +27,12 @@ const StationCard = ({ station }) => (
           <FiMapPin className="mr-3 mt-1 h-4 w-4 flex-shrink-0" />
           <span className="line-clamp-2">{station.location?.address || station.address || 'No address provided'}</span>
         </p>
-        <div className="flex items-center text-slate-400">
-          <FiClock className="mr-3 h-4 w-4" />
-          <span>{station.availableSlots ?? 'N/A'} / {station.totalPorts ?? 'N/A'} slots available</span>
-        </div>
+        {typeof station.availableSlots === 'number' && typeof station.totalPorts === 'number' ? (
+          <div className="flex items-center text-slate-400">
+            <FiClock className="mr-3 h-4 w-4" />
+            <span>{station.availableSlots} / {station.totalPorts} slots available</span>
+          </div>
+        ) : null}
         <div className="flex items-center text-slate-400">
           <FiDollarSign className="mr-3 h-4 w-4" />
           <span>${station.pricePerHour ?? 'N/A'}/hour</span>

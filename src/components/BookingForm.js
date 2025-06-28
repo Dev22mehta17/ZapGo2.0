@@ -147,13 +147,7 @@ const BookingForm = ({ station, onSubmit, isBooking }) => {
         paymentDetails: paymentDetails.paymentDetails, // Card details or UPI ID
         createdAt: serverTimestamp(),
         paymentStatus: 'completed', // Assuming payment was successful
-        // No-show penalty tracking
-        noShowPenalty: totalPrice * 0.15, // 15% penalty for no-show
-        lateArrivalPenalty: totalPrice * 0.10, // 10% penalty for late arrival
-        isRefundable: false, // Booking payment is non-refundable
-        arrivalStatus: 'not_arrived', // 'not_arrived', 'arrived', 'late', 'no_show'
-        arrivalTime: null,
-        penaltyApplied: false
+        isRefundable: false // Booking payment is non-refundable
       };
 
       // Create booking in Firestore

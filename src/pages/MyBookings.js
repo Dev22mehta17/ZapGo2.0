@@ -5,7 +5,6 @@ import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 import { FiCalendar, FiClock, FiMapPin, FiUser, FiZap, FiX, FiTrash2, FiAlertTriangle, FiExternalLink, FiLoader, FiInbox } from 'react-icons/fi';
-import ArrivalTracker from '../components/ArrivalTracker';
 
 const BookingCard = ({ booking, userRole, openDeleteModal, onBookingUpdate }) => {
   const getStatusClasses = (status) => {
@@ -61,21 +60,6 @@ const BookingCard = ({ booking, userRole, openDeleteModal, onBookingUpdate }) =>
     });
   };
 
-  const getPenaltyStatus = (booking) => {
-    if (booking.arrivalStatus === 'no_show') {
-      return { type: 'no_show', text: 'No-Show Penalty Applied', color: 'text-red-400' };
-    }
-    if (booking.arrivalStatus === 'late') {
-      return { type: 'late', text: 'Late Arrival Penalty Applied', color: 'text-orange-400' };
-    }
-    if (booking.arrivalStatus === 'arrived') {
-      return { type: 'arrived', text: 'Arrived On Time', color: 'text-green-400' };
-    }
-    return null;
-  };
-
-  const penaltyStatus = getPenaltyStatus(booking);
-
   return (
     <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div className="flex-grow">
@@ -87,9 +71,9 @@ const BookingCard = ({ booking, userRole, openDeleteModal, onBookingUpdate }) =>
             <div className={`px-3 py-1 text-sm font-bold rounded-full border ${getStatusClasses(booking.status)}`}>
               {booking.status}
             </div>
-            {penaltyStatus && (
-              <div className={`px-3 py-1 text-sm font-bold rounded-full border ${penaltyStatus.color} bg-slate-700/50`}>
-                {penaltyStatus.text}
+            {booking.bookingType === 'bid' && (
+              <div className="px-3 py-1 text-sm font-bold rounded-full border bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                🏆 Bid
               </div>
             )}
           </div>
@@ -155,16 +139,16 @@ const BookingCard = ({ booking, userRole, openDeleteModal, onBookingUpdate }) =>
                   <span className="text-yellow-400 font-medium">+${booking.dynamicPricing.toFixed(2)}</span>
                 </div>
               )}
+              {booking.bookingType === 'bid' && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Bid Amount:</span>
+                  <span className="text-yellow-400 font-medium">${booking.bidAmount || booking.totalPrice}</span>
+                </div>
+              )}
               {booking.penalty > 0 && (
                 <div className="flex justify-between">
                   <span className="text-slate-400">Late Payment Penalty:</span>
                   <span className="text-red-400 font-medium">+${booking.penalty.toFixed(2)}</span>
-                </div>
-              )}
-              {booking.penaltyAmount > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Arrival Penalty:</span>
-                  <span className="text-red-400 font-medium">+${booking.penaltyAmount.toFixed(2)}</span>
                 </div>
               )}
               {booking.isRefundable === false && (
@@ -177,14 +161,6 @@ const BookingCard = ({ booking, userRole, openDeleteModal, onBookingUpdate }) =>
               )}
             </div>
           </div>
-        )}
-
-        {/* Arrival Tracker for pending bookings */}
-        {booking.status === 'pending' && booking.arrivalStatus !== 'arrived' && (
-          <ArrivalTracker 
-            booking={booking} 
-            onStatusUpdate={onBookingUpdate}
-          />
         )}
       </div>
       

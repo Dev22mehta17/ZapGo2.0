@@ -83,7 +83,7 @@ const StationDetails = () => {
     }
   };
 
-  const handleBidSubmit = (e) => {
+  const handleBidSubmit = async (e) => {
     e.preventDefault();
     if (!userBid || Number(userBid) <= 0) {
         toast.error("Please enter a valid bid amount.");
@@ -99,14 +99,74 @@ const StationDetails = () => {
     const allBids = [...dummyBids, yourBid];
     allBids.sort((a, b) => b.bid - a.bid);
     const winner = allBids[0];
-    setTimeout(() => {
+    const isWinner = winner.name === yourBid.name && winner.bid === yourBid.bid;
+    
+    setTimeout(async () => {
       setAuctionResult({
         winner,
         yourBid,
         allBids,
-        isWinner: winner.name === yourBid.name && winner.bid === yourBid.bid,
+        isWinner,
       });
       setIsAuctionRunning(false);
+      
+      // If user won the bid, save it as a booking
+      if (isWinner && user) {
+        try {
+          const stationRef = doc(db, 'stations', id);
+          const stationDoc = await getDoc(stationRef);
+          const currentStation = stationDoc.data();
+          
+          if (currentStation.availableSlots <= 0) {
+            toast.error('Sorry, no slots are available at this station.');
+            return;
+          }
+
+          // Create booking data for the winning bid
+          const bookingData = {
+            userId: user.uid,
+            userName: user.displayName || user.email,
+            stationId: id,
+            stationName: currentStation.name,
+            stationManagerId: currentStation.managerId,
+            startTime: new Date(), // Default to current time, can be adjusted later
+            duration: 1, // Default 1 hour, can be adjusted
+            vehicleType: 'car', // Default vehicle type
+            status: 'pending', // Pending confirmation by station master
+            paymentStatus: 'completed', // Bid payment is completed
+            totalPrice: winner.bid, // The winning bid amount
+            bookingType: 'bid', // Mark this as a bid-based booking
+            bidAmount: winner.bid,
+            bidWinner: user.displayName || user.email,
+            createdAt: new Date(),
+            notes: `Won auction with bid of $${winner.bid}`,
+            // Additional bid-specific fields
+            auctionResult: {
+              winner: winner,
+              allBids: allBids,
+              auctionDate: new Date()
+            }
+          };
+
+          // Save the booking to Firestore
+          await addDoc(collection(db, 'bookings'), bookingData);
+
+          // Update station's available slots
+          const newSlotCount = currentStation.availableSlots - 1;
+          const newStatus = newSlotCount > 0 ? 'available' : 'busy';
+
+          await updateDoc(stationRef, {
+            availableSlots: newSlotCount,
+            status: newStatus,
+          });
+
+          toast.success(`Bid won! Booking created for $${winner.bid}. Station master will confirm shortly.`);
+          
+        } catch (error) {
+          console.error('Error creating bid booking:', error);
+          toast.error('Failed to create booking for winning bid. Please try again.');
+        }
+      }
     }, 1500);
   };
 
