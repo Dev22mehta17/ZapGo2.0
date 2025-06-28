@@ -85,8 +85,19 @@ const Home = () => {
         </div>
       </div>
 
+      {/* --- Search Result Card Section --- */}
+      {searchQuery && filteredStations.length > 0 && (
+        <div className="px-4 pt-6 transition-all duration-300">
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-4">
+              <StationCard station={filteredStations[0]} />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --- Map Section --- */}
-      <div className="px-4 py-6">
+      <div className={`px-4 py-6 transition-all duration-300 ${searchQuery && filteredStations.length > 0 ? 'pt-2' : ''}`}>
         <div className="max-w-7xl mx-auto">
           <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden h-[400px] lg:h-[500px]">
             {loading ? (

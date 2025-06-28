@@ -111,35 +111,15 @@ const Login = () => {
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-700" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-slate-800 text-slate-400">Or continue with</span>
-            </div>
+          {/* Sign Up Link */}
+          <div className="text-center mt-8">
+            <p className="text-slate-400">
+              Don't have an account?{' '}
+              <Link to="/signup" className="font-medium text-primary-400 hover:text-primary-300 transition-colors">
+                Sign up
+              </Link>
+            </p>
           </div>
-
-          {/* Google Sign In */}
-          <button
-            onClick={handleGoogleLogin}
-            disabled={googleLoading}
-            className="w-full flex items-center justify-center py-3 px-4 border border-slate-600 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors disabled:opacity-50"
-          >
-            <FcGoogle className="h-5 w-5 mr-3" />
-            <span className="font-medium">{googleLoading ? 'Redirecting...' : 'Sign in with Google'}</span>
-          </button>
-        </div>
-
-        {/* Sign Up Link */}
-        <div className="text-center mt-8">
-          <p className="text-slate-400">
-            Don't have an account?{' '}
-            <Link to="/signup" className="font-medium text-primary-400 hover:text-primary-300 transition-colors">
-              Sign up
-            </Link>
-          </p>
         </div>
       </div>
     </div>
