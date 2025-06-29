@@ -9,6 +9,7 @@ import { FiMapPin, FiClock, FiDollarSign, FiZap, FiX, FiLoader, FiAlertTriangle,
 
 import Map from '../components/Map';
 import BookingForm from '../components/BookingForm';
+import PaymentModal from '../components/PaymentModal';
 
 // A simple component to map amenity strings to icons
 const AmenityIcon = ({ amenity }) => {
@@ -31,6 +32,8 @@ const StationDetails = () => {
   const [userBid, setUserBid] = useState('');
   const [auctionResult, setAuctionResult] = useState(null);
   const [isAuctionRunning, setIsAuctionRunning] = useState(false);
+  const [winningBidDetails, setWinningBidDetails] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   const handleBooking = async (bookingDetails) => {
     if (!user) {
@@ -110,64 +113,92 @@ const StationDetails = () => {
       });
       setIsAuctionRunning(false);
       
-      // If user won the bid, save it as a booking
+      // If user won the bid, store the details for payment
       if (isWinner && user) {
-        try {
-          const stationRef = doc(db, 'stations', id);
-          const stationDoc = await getDoc(stationRef);
-          const currentStation = stationDoc.data();
-          
-          if (currentStation.availableSlots <= 0) {
-            toast.error('Sorry, no slots are available at this station.');
-            return;
-          }
-
-          // Create booking data for the winning bid
-          const bookingData = {
-            userId: user.uid,
-            userName: user.displayName || user.email,
-            stationId: id,
-            stationName: currentStation.name,
-            stationManagerId: currentStation.managerId,
-            startTime: new Date(), // Default to current time, can be adjusted later
-            duration: 1, // Default 1 hour, can be adjusted
-            vehicleType: 'car', // Default vehicle type
-            status: 'pending', // Pending confirmation by station master
-            paymentStatus: 'completed', // Bid payment is completed
-            totalPrice: winner.bid, // The winning bid amount
-            bookingType: 'bid', // Mark this as a bid-based booking
-            bidAmount: winner.bid,
-            bidWinner: user.displayName || user.email,
-            createdAt: new Date(),
-            notes: `Won auction with bid of $${winner.bid}`,
-            // Additional bid-specific fields
-            auctionResult: {
-              winner: winner,
-              allBids: allBids,
-              auctionDate: new Date()
-            }
-          };
-
-          // Save the booking to Firestore
-          await addDoc(collection(db, 'bookings'), bookingData);
-
-          // Update station's available slots
-          const newSlotCount = currentStation.availableSlots - 1;
-          const newStatus = newSlotCount > 0 ? 'available' : 'busy';
-
-          await updateDoc(stationRef, {
-            availableSlots: newSlotCount,
-            status: newStatus,
-          });
-
-          toast.success(`Bid won! Booking created for $${winner.bid}. Station master will confirm shortly.`);
-          
-        } catch (error) {
-          console.error('Error creating bid booking:', error);
-          toast.error('Failed to create booking for winning bid. Please try again.');
-        }
+        setWinningBidDetails({
+          winner,
+          allBids,
+          stationId: id,
+          stationName: station.name,
+          stationManagerId: station.managerId,
+          bidAmount: winner.bid,
+          auctionDate: new Date()
+        });
       }
     }, 1500);
+  };
+
+  const handleBidPayment = async (paymentDetails) => {
+    if (!winningBidDetails || !user) {
+      toast.error('Bid details not found. Please try again.');
+      return;
+    }
+
+    try {
+      const stationRef = doc(db, 'stations', id);
+      const stationDoc = await getDoc(stationRef);
+      const currentStation = stationDoc.data();
+      
+      if (currentStation.availableSlots <= 0) {
+        toast.error('Sorry, no slots are available at this station.');
+        return;
+      }
+
+      // Create booking data for the winning bid
+      const bookingData = {
+        userId: user.uid,
+        userName: user.displayName || user.email,
+        stationId: id,
+        stationName: currentStation.name,
+        stationManagerId: currentStation.managerId,
+        startTime: new Date(), // Default to current time, can be adjusted later
+        duration: 1, // Default 1 hour, can be adjusted
+        vehicleType: 'car', // Default vehicle type
+        status: 'pending', // Pending confirmation by station master
+        paymentStatus: 'completed', // Bid payment is completed
+        totalPrice: winningBidDetails.bidAmount, // The winning bid amount
+        bookingType: 'bid', // Mark this as a bid-based booking
+        bidAmount: winningBidDetails.bidAmount,
+        bidWinner: user.displayName || user.email,
+        createdAt: new Date(),
+        notes: `Won auction with bid of $${winningBidDetails.bidAmount}`,
+        // Payment details
+        paymentType: paymentDetails.paymentType,
+        paymentMethod: paymentDetails.paymentMethod,
+        paymentAmount: paymentDetails.amount,
+        paymentDetails: paymentDetails.paymentDetails,
+        // Additional bid-specific fields
+        auctionResult: {
+          winner: winningBidDetails.winner,
+          allBids: winningBidDetails.allBids,
+          auctionDate: winningBidDetails.auctionDate
+        }
+      };
+
+      // Save the booking to Firestore
+      await addDoc(collection(db, 'bookings'), bookingData);
+
+      // Update station's available slots
+      const newSlotCount = currentStation.availableSlots - 1;
+      const newStatus = newSlotCount > 0 ? 'available' : 'busy';
+
+      await updateDoc(stationRef, {
+        availableSlots: newSlotCount,
+        status: newStatus,
+      });
+
+      toast.success(`Bid payment successful! Booking created for $${winningBidDetails.bidAmount}. Station master will confirm shortly.`);
+      setShowPaymentModal(false);
+      setShowBidModal(false);
+      setWinningBidDetails(null);
+      setAuctionResult(null);
+      setUserBid('');
+      navigate('/my-bookings');
+      
+    } catch (error) {
+      console.error('Error creating bid booking:', error);
+      toast.error('Failed to create booking for winning bid. Please try again.');
+    }
   };
 
   const MemoizedMap = useMemo(() => {
@@ -323,16 +354,73 @@ const StationDetails = () => {
                   </h3>
                   <p className="text-slate-300 mb-4">The winning bid was <strong className="text-white">${auctionResult.winner.bid}</strong> by <strong className="text-white">{auctionResult.winner.name}</strong>.</p>
                   <p className="text-slate-400 text-sm mb-6">Your bid was <strong className="text-white">${auctionResult.yourBid.bid}</strong>.</p>
-                  {auctionResult.isWinner && <p className="text-green-400 font-semibold mb-6">Congratulations! The slot is yours. You will be notified shortly.</p>}
-                  <button onClick={() => { setShowBidModal(false); setAuctionResult(null); setUserBid(''); }} className="w-full py-3 px-4 bg-slate-700 rounded-lg font-semibold hover:bg-slate-600 transition-colors">
-                    Close
-                  </button>
+                  {auctionResult.isWinner && (
+                    <>
+                      <p className="text-green-400 font-semibold mb-4">Congratulations! You won the auction!</p>
+                      <p className="text-slate-400 text-sm mb-6">Please complete payment to secure your slot.</p>
+                      <div className="space-y-3">
+                        <button 
+                          onClick={() => setShowPaymentModal(true)} 
+                          className="w-full py-3 px-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold hover:opacity-90 transition-opacity"
+                        >
+                          Proceed to Payment - ${auctionResult.winner.bid}
+                        </button>
+                        <button 
+                          onClick={() => { 
+                            setShowBidModal(false); 
+                            setAuctionResult(null); 
+                            setUserBid(''); 
+                            setWinningBidDetails(null);
+                          }} 
+                          className="w-full py-2 px-4 bg-slate-700 rounded-lg font-semibold hover:bg-slate-600 transition-colors text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {!auctionResult.isWinner && (
+                    <button 
+                      onClick={() => { 
+                        setShowBidModal(false); 
+                        setAuctionResult(null); 
+                        setUserBid(''); 
+                      }} 
+                      className="w-full py-3 px-4 bg-slate-700 rounded-lg font-semibold hover:bg-slate-600 transition-colors"
+                    >
+                      Close
+                    </button>
+                  )}
                 </div>
               )}
             </div>
           </div>
         )}
       </div>
+
+      {/* Payment Modal for Bid Winners */}
+      {showPaymentModal && winningBidDetails && (
+        <PaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setWinningBidDetails(null);
+          }}
+          amount={winningBidDetails.bidAmount}
+          onConfirm={handleBidPayment}
+          loading={false}
+          bookingDetails={{
+            stationId: winningBidDetails.stationId,
+            stationName: winningBidDetails.stationName,
+            date: new Date().toISOString().split('T')[0],
+            startTime: new Date().toLocaleTimeString('en-US', { hour12: false }),
+            duration: 1,
+            vehicleType: 'car',
+            bookingType: 'bid',
+            bidAmount: winningBidDetails.bidAmount
+          }}
+        />
+      )}
     </div>
   );
 };

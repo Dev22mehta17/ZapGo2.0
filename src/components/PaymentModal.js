@@ -19,10 +19,20 @@ const PaymentModal = ({ isOpen, onClose, amount, onConfirm, loading, bookingDeta
   const [penalty, setPenalty] = useState(0);
   const [isPaymentExpired, setIsPaymentExpired] = useState(false);
 
+  // Check if this is a bid payment
+  const isBidPayment = bookingDetails?.bookingType === 'bid';
+
   useEffect(() => {
     setMounted(true);
     return () => setMounted(false);
   }, []);
+
+  // For bid payments, always use full payment type
+  useEffect(() => {
+    if (isBidPayment) {
+      setPaymentType('full');
+    }
+  }, [isBidPayment]);
 
   // Calculate dynamic pricing based on demand, time, etc.
   useEffect(() => {
@@ -102,84 +112,85 @@ const PaymentModal = ({ isOpen, onClose, amount, onConfirm, loading, bookingDeta
   if (!isOpen) return null;
 
   const modalContent = (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
-      <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-xl max-w-2xl w-full mx-auto max-h-[90vh] overflow-y-auto relative">
-        {/* Header */}
-        <div className="p-6 border-b border-slate-700">
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-white">Payment Options</h2>
-            <button
-              onClick={onClose}
-              className="text-slate-400 hover:text-white transition-colors"
-            >
-              <FiX className="h-6 w-6" />
-            </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-xl max-w-2xl w-full mx-auto max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b border-slate-700">
+          <div>
+            <h2 className="text-2xl font-bold text-white">
+              {isBidPayment ? 'Bid Payment' : 'Payment'}
+            </h2>
+            <p className="text-slate-400 mt-1">
+              {isBidPayment 
+                ? `Complete payment for your winning bid of $${amount.toFixed(2)}`
+                : 'Complete your booking payment'
+              }
+            </p>
           </div>
-          
-          {/* Timer */}
-          <div className="mt-4 flex items-center justify-center">
-            <div className={`flex items-center space-x-2 px-4 py-2 rounded-lg ${
-              timeRemaining > 60 ? 'bg-green-500/20 text-green-400' : 
-              timeRemaining > 30 ? 'bg-yellow-500/20 text-yellow-400' : 
-              'bg-red-500/20 text-red-400'
-            }`}>
-              <FiClock className="h-4 w-4" />
-              <span className="font-mono font-bold">
-                {isPaymentExpired ? 'EXPIRED' : formatTime(timeRemaining)}
-              </span>
-            </div>
-          </div>
-
-          {isPaymentExpired && (
-            <div className="mt-4 flex items-center space-x-2 text-red-400 bg-red-500/20 p-3 rounded-lg">
-              <FiAlertTriangle className="h-5 w-5" />
-              <span>Payment session expired. Please refresh to try again.</span>
-            </div>
-          )}
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-white transition-colors"
+          >
+            <FiX className="h-6 w-6" />
+          </button>
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Payment Type Selection */}
-          <div>
-            <h3 className="text-lg font-semibold text-white mb-4">Choose Payment Type</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button
-                onClick={() => setPaymentType('booking')}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  paymentType === 'booking'
-                    ? 'border-primary-500 bg-primary-500/20 text-primary-400'
-                    : 'border-slate-600 bg-slate-700/50 text-slate-300 hover:border-slate-500'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <FiPercent className="h-6 w-6" />
-                  <div className="text-left">
-                    <div className="font-semibold">Booking Payment (20%)</div>
-                    <div className="text-sm opacity-75">Initial partial payment</div>
-                    <div className="text-lg font-bold">${(amount * 0.2).toFixed(2)}</div>
+          {/* Payment Type Selection - Hide for bid payments */}
+          {!isBidPayment && (
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-4">Choose Payment Type</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button
+                  onClick={() => setPaymentType('booking')}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    paymentType === 'booking'
+                      ? 'border-primary-500 bg-primary-500/20 text-primary-400'
+                      : 'border-slate-600 bg-slate-700/50 text-slate-300 hover:border-slate-500'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <FiPercent className="h-6 w-6" />
+                    <div className="text-left">
+                      <div className="font-semibold">Booking Payment (20%)</div>
+                      <div className="text-sm opacity-75">Initial partial payment</div>
+                      <div className="text-lg font-bold">${(amount * 0.2).toFixed(2)}</div>
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
 
-              <button
-                onClick={() => setPaymentType('full')}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  paymentType === 'full'
-                    ? 'border-primary-500 bg-primary-500/20 text-primary-400'
-                    : 'border-slate-600 bg-slate-700/50 text-slate-300 hover:border-slate-500'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <FiDollarSign className="h-6 w-6" />
-                  <div className="text-left">
-                    <div className="font-semibold">Full Slot Payment</div>
-                    <div className="text-sm opacity-75">Pay complete amount</div>
-                    <div className="text-lg font-bold">${amount.toFixed(2)}</div>
+                <button
+                  onClick={() => setPaymentType('full')}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    paymentType === 'full'
+                      ? 'border-primary-500 bg-primary-500/20 text-primary-400'
+                      : 'border-slate-600 bg-slate-700/50 text-slate-300 hover:border-slate-500'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <FiDollarSign className="h-6 w-6" />
+                    <div className="text-left">
+                      <div className="font-semibold">Full Slot Payment</div>
+                      <div className="text-sm opacity-75">Pay complete amount</div>
+                      <div className="text-lg font-bold">${amount.toFixed(2)}</div>
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Bid Payment Info */}
+          {isBidPayment && (
+            <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-4">
+              <div className="flex items-center space-x-2 text-yellow-400 mb-2">
+                <FiDollarSign className="h-5 w-5" />
+                <span className="font-semibold">Winning Bid Payment</span>
+              </div>
+              <p className="text-yellow-300 text-sm">
+                You won the auction! Please complete payment to secure your slot.
+              </p>
+            </div>
+          )}
 
           {/* Dynamic Pricing Info */}
           {dynamicPricing > 0 && (
@@ -194,16 +205,28 @@ const PaymentModal = ({ isOpen, onClose, amount, onConfirm, loading, bookingDeta
             </div>
           )}
 
-          {/* No-Show Policy Warning */}
+          {/* Policy Warning */}
           <div className="bg-orange-500/20 border border-orange-500/30 rounded-lg p-4">
             <div className="flex items-center space-x-2 text-orange-400 mb-2">
               <FiAlertTriangle className="h-5 w-5" />
-              <span className="font-semibold">Important Booking Policy</span>
+              <span className="font-semibold">
+                {isBidPayment ? 'Bid Payment Policy' : 'Important Booking Policy'}
+              </span>
             </div>
             <div className="text-orange-300 text-sm space-y-1">
-              <p>• Booking payment is <strong>non-refundable</strong></p>
-              <p>• No-show penalty: Additional ${(amount * 0.15).toFixed(2)} if you don't arrive within 15 minutes of booking time</p>
-              <p>• Late arrival: ${(amount * 0.10).toFixed(2)} penalty if more than 10 minutes late</p>
+              {isBidPayment ? (
+                <>
+                  <p>• Bid payment is <strong>non-refundable</strong></p>
+                  <p>• Payment must be completed to secure your winning bid</p>
+                  <p>• Station master will confirm your booking after payment</p>
+                </>
+              ) : (
+                <>
+                  <p>• Booking payment is <strong>non-refundable</strong></p>
+                  <p>• No-show penalty: Additional ${(amount * 0.15).toFixed(2)} if you don't arrive within 15 minutes of booking time</p>
+                  <p>• Late arrival: ${(amount * 0.10).toFixed(2)} penalty if more than 10 minutes late</p>
+                </>
+              )}
             </div>
           </div>
 
@@ -355,13 +378,19 @@ const PaymentModal = ({ isOpen, onClose, amount, onConfirm, loading, bookingDeta
 
           {/* Payment Summary */}
           <div className="bg-slate-700/50 rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-white mb-3">Payment Summary</h3>
+            <h3 className="text-lg font-semibold text-white mb-3">
+              {isBidPayment ? 'Bid Payment Summary' : 'Payment Summary'}
+            </h3>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-slate-300">Base Amount:</span>
-                <span className="text-white">${paymentType === 'booking' ? (amount * 0.2).toFixed(2) : amount.toFixed(2)}</span>
+                <span className="text-slate-300">
+                  {isBidPayment ? 'Winning Bid Amount:' : 'Base Amount:'}
+                </span>
+                <span className="text-white">
+                  ${isBidPayment ? amount.toFixed(2) : (paymentType === 'booking' ? (amount * 0.2).toFixed(2) : amount.toFixed(2))}
+                </span>
               </div>
-              {dynamicPricing > 0 && (
+              {!isBidPayment && dynamicPricing > 0 && (
                 <div className="flex justify-between">
                   <span className="text-yellow-400">Dynamic Pricing:</span>
                   <span className="text-yellow-400">+${dynamicPricing.toFixed(2)}</span>
@@ -370,7 +399,9 @@ const PaymentModal = ({ isOpen, onClose, amount, onConfirm, loading, bookingDeta
               <div className="border-t border-slate-600 pt-2 mt-2">
                 <div className="flex justify-between">
                   <span className="text-lg font-semibold text-white">Total Amount:</span>
-                  <span className="text-xl font-bold text-primary-400">${calculateTotalAmount().toFixed(2)}</span>
+                  <span className="text-xl font-bold text-primary-400">
+                    ${isBidPayment ? amount.toFixed(2) : calculateTotalAmount().toFixed(2)}
+                  </span>
                 </div>
             </div>
           </div>
@@ -398,7 +429,12 @@ const PaymentModal = ({ isOpen, onClose, amount, onConfirm, loading, bookingDeta
               ) : (
                 <>
                   <FiCheck className="h-4 w-4" />
-                  <span>Pay ${calculateTotalAmount().toFixed(2)}</span>
+                  <span>
+                    {isBidPayment 
+                      ? `Pay Bid Amount $${amount.toFixed(2)}`
+                      : `Pay ${calculateTotalAmount().toFixed(2)}`
+                    }
+                  </span>
                 </>
               )}
           </button>
